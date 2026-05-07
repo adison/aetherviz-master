@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>穿越機飛行力學 | FPV Drone Force Distribution | AetherViz Master</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+:root{
+  --teal:linear-gradient(135deg,#14B8A6 0%,#06B6D4 50%,#22D3EE 100%);
+  --border:rgba(20,184,166,0.28);
+  --glass:rgba(15,23,42,0.88);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:linear-gradient(180deg,#050E1A 0%,#0C1A2E 50%,#050E1A 100%);color:#F8FAFC;font-family:Inter,system-ui,sans-serif;height:100vh;overflow:hidden;}
+nav{background:rgba(5,14,26,0.95);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:100;position:relative;}
+.nav-title{font-size:15px;font-weight:800;background:var(--teal);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-sub{font-size:10px;color:#475569;margin-left:10px;}
+.btn{padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#F8FAFC;}
+.btn:hover{background:rgba(255,255,255,0.15);transform:translateY(-1px);}
+.btn-p{background:var(--teal);border-color:transparent;font-weight:600;}
+.btn-p:hover{opacity:.85;}
+.btn-mode{padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;transition:all .2s;border:1px solid var(--border);background:rgba(20,184,166,0.08);color:#5EEAD4;font-weight:600;}
+.btn-mode:hover,.btn-mode.active{background:rgba(20,184,166,0.25);border-color:#14B8A6;color:#2DD4BF;}
+.layout{display:flex;height:calc(100vh - 54px);}
+.sidebar{width:272px;background:rgba(5,14,26,0.95);border-right:1px solid var(--border);overflow-y:auto;padding:14px;flex-shrink:0;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(20,184,166,0.4);border-radius:2px;}
+.sec{margin-bottom:16px;}
+.sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#14B8A6;margin-bottom:8px;}
+.obj-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:12px;color:#94A3B8;line-height:1.5;}
+.obj-chk{width:15px;height:15px;border:2px solid #14B8A6;border-radius:4px;flex-shrink:0;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;font-size:9px;}
+.obj-chk.done{background:#14B8A6;color:white;}
+.fbox{background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.18);border-radius:10px;padding:12px;margin-bottom:8px;}
+.canvas-area{flex:1;position:relative;overflow:hidden;}
+#cv{position:absolute;top:0;left:0;width:100%;height:100%;}
+#svgo{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+
+/* Mode buttons panel */
+.modes-panel{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;backdrop-filter:blur(12px);background:rgba(5,14,26,0.7);border:1px solid var(--border);border-radius:12px;padding:8px 12px;z-index:10;}
+
+/* Motor power panel */
+.motor-panel{position:absolute;top:10px;right:10px;background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:14px 16px;backdrop-filter:blur(12px);width:190px;}
+.motor-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.motor-label{font-size:11px;font-weight:700;width:28px;flex-shrink:0;}
+.motor-bar-bg{flex:1;height:10px;background:rgba(255,255,255,0.08);border-radius:5px;overflow:hidden;}
+.motor-bar{height:100%;border-radius:5px;transition:width .3s ease;background:var(--teal);}
+.motor-pct{font-size:10px;color:#64748B;width:34px;text-align:right;flex-shrink:0;}
+
+/* Force panel */
+.force-panel{position:absolute;top:10px;right:210px;background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:12px 14px;backdrop-filter:blur(12px);width:200px;}
+.force-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;}
+.force-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-right:6px;}
+.force-bar-bg{flex:1;height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;margin:0 8px;}
+.force-bar{height:100%;border-radius:4px;transition:width .3s ease;}
+
+/* Angle display */
+.angle-hud{position:absolute;bottom:110px;right:10px;background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:10px 14px;backdrop-filter:blur(12px);font-size:12px;}
+.angle-row{display:flex;justify-content:space-between;gap:20px;margin-bottom:4px;}
+.angle-val{font-weight:700;font-size:14px;}
+
+/* Controls */
+.ctrl-panel{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--glass);border:1px solid var(--border);border-radius:18px;padding:14px 22px;backdrop-filter:blur(14px);display:flex;gap:18px;align-items:center;}
+.ctrl-grp{display:flex;flex-direction:column;gap:4px;min-width:130px;}
+.ctrl-lbl{font-size:10px;color:#64748B;display:flex;justify-content:space-between;}
+.ctrl-lbl span:last-child{color:#2DD4BF;font-weight:700;}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,0.12);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#14B8A6,#22D3EE);cursor:pointer;box-shadow:0 0 8px rgba(20,184,166,.5);}
+
+/* Quiz */
+.quiz-panel{position:absolute;bottom:100px;right:10px;width:350px;background:rgba(5,14,26,0.95);border:1px solid var(--border);border-radius:16px;backdrop-filter:blur(14px);overflow:hidden;transition:all .3s ease;max-height:380px;}
+.quiz-panel.hidden{opacity:0;pointer-events:none;transform:translateY(20px) scale(.97);}
+.quiz-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);}
+.quiz-body{padding:14px;overflow-y:auto;max-height:320px;}
+.q-text{font-size:13px;line-height:1.65;margin-bottom:12px;color:#E2E8F0;}
+.q-opt{display:flex;flex-direction:column;gap:7px;}
+.opt-btn{padding:8px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#CBD5E1;font-size:12px;cursor:pointer;text-align:left;transition:.2s;}
+.opt-btn:hover{background:rgba(20,184,166,0.15);border-color:var(--border);}
+.opt-btn.correct{background:rgba(34,197,94,.2);border-color:#22C55E;color:#4ADE80;}
+.opt-btn.wrong{background:rgba(239,68,68,.2);border-color:#EF4444;color:#FCA5A5;}
+.q-fb{margin-top:10px;font-size:12px;padding:9px;border-radius:9px;display:none;line-height:1.6;}
+.quiz-fab{position:absolute;bottom:10px;right:10px;width:48px;height:48px;border-radius:50%;background:var(--teal);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(20,184,166,.45);transition:transform .2s;color:white;z-index:50;}
+.quiz-fab:hover{transform:scale(1.1);}
+.quiz-fab.hidden{display:none;}
+.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(20,184,166,.95);color:#0F172A;padding:8px 18px;border-radius:9px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+.explain{font-size:12px;color:#94A3B8;line-height:1.75;}
+.katex{color:#2DD4BF;}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+
+<nav>
+  <div style="display:flex;align-items:center">
+    <span class="nav-title">穿越機飛行力學</span>
+    <span class="nav-sub">FPV Drone Motor Force Distribution</span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn" onclick="resetAll()">重置</button>
+    <button class="btn btn-p" onclick="randomMode()">隨機姿態</button>
+    <button class="btn" onclick="toggleFS()">全螢幕</button>
+  </div>
+</nav>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sec">
+      <div class="sec-title">學習目標</div>
+      <div class="obj-item"><div class="obj-chk" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>理解四軸機各馬達推力如何合成飛行方向</div>
+      <div class="obj-item"><div class="obj-chk" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>掌握前傾角度與升力/前進力的三角函數關係</div>
+      <div class="obj-item"><div class="obj-chk" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>理解偏航（Yaw）為何不需要機身傾斜</div>
+      <div class="obj-item"><div class="obj-chk" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>計算維持高度所需的額外油門補償量</div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">推力分解公式</div>
+      <div class="fbox">
+        <div id="f1" style="margin-bottom:7px;font-size:12px"></div>
+        <div id="f2" style="margin-bottom:7px;font-size:12px"></div>
+        <div id="f3" style="font-size:12px"></div>
+      </div>
+      <div class="fbox">
+        <div style="font-size:10px;color:#475569;margin-bottom:6px">高度維持補償</div>
+        <div id="f4" style="font-size:12px;margin-bottom:5px"></div>
+        <div id="f-calc" style="font-size:11px;color:#2DD4BF"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">馬達配置（X型）</div>
+      <div style="font-size:11px;color:#94A3B8;line-height:1.8;">
+        <div style="display:flex;justify-content:center;margin-bottom:8px">
+          <div style="background:rgba(20,184,166,0.08);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-family:monospace;font-size:12px;text-align:center;line-height:2">
+            <span style="color:#22C55E">M1↑</span>&nbsp;&nbsp;&nbsp;<span style="color:#EF4444">M2↓</span><br>
+            &nbsp;&nbsp;╲&nbsp;╱<br>
+            &nbsp;&nbsp;╱&nbsp;╲<br>
+            <span style="color:#EF4444">M4↓</span>&nbsp;&nbsp;&nbsp;<span style="color:#22C55E">M3↑</span>
+          </div>
+        </div>
+        <div>↑↓ 表示螺旋槳旋轉方向（順時針/逆時針）</div>
+        <div style="margin-top:4px">對角馬達旋向相同，以平衡反扭矩</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">飛行姿態原理</div>
+      <div class="explain">
+        穿越機靠改變各馬達轉速來控制姿態：<br><br>
+        🔴 <strong style="color:#F97316">前進</strong>：前側馬達減速、後側加速 → 機身前傾 → 合力向前<br><br>
+        🔵 <strong style="color:#3B82F6">側移</strong>：一側加速、另側減速 → 機身側傾<br><br>
+        🟢 <strong style="color:#22C55E">偏航</strong>：對角馬達組差速 → 利用反扭矩旋轉，機身不傾斜<br><br>
+        傾角越大，前進力越強，但升力損失也越大。競速穿越機常在 <strong style="color:#2DD4BF">45–70°</strong> 飛行！
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">傾角效率對照</div>
+      <div id="efficiency-table" style="font-size:11px"></div>
+    </div>
+  </div>
+
+  <!-- Canvas Area -->
+  <div class="canvas-area">
+    <canvas id="cv"></canvas>
+    <svg id="svgo"></svg>
+
+    <!-- Mode buttons -->
+    <div class="modes-panel">
+      <button class="btn-mode active" id="m-hover" onclick="setMode('hover')">🚁 懸停</button>
+      <button class="btn-mode" id="m-fwd" onclick="setMode('forward')">⬆ 前進 30°</button>
+      <button class="btn-mode" id="m-race" onclick="setMode('race')">🏁 競速 55°</button>
+      <button class="btn-mode" id="m-back" onclick="setMode('back')">⬇ 後退</button>
+      <button class="btn-mode" id="m-left" onclick="setMode('left')">⬅ 左移</button>
+      <button class="btn-mode" id="m-right" onclick="setMode('right')">➡ 右移</button>
+      <button class="btn-mode" id="m-yawL" onclick="setMode('yawL')">↺ 左旋</button>
+      <button class="btn-mode" id="m-yawR" onclick="setMode('yawR')">↻ 右旋</button>
+    </div>
+
+    <!-- Motor power panel -->
+    <div class="motor-panel">
+      <div style="font-size:10px;color:#14B8A6;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">馬達輸出 (%)</div>
+      <div class="motor-row">
+        <div class="motor-label" style="color:#22C55E">M1</div>
+        <div style="flex:1">
+          <div style="font-size:9px;color:#475569;margin-bottom:2px">前左 FL · CW</div>
+          <div class="motor-bar-bg"><div class="motor-bar" id="bar-m1" style="width:50%;background:linear-gradient(90deg,#22C55E,#86EFAC)"></div></div>
+        </div>
+        <div class="motor-pct" id="pct-m1">50%</div>
+      </div>
+      <div class="motor-row">
+        <div class="motor-label" style="color:#EF4444">M2</div>
+        <div style="flex:1">
+          <div style="font-size:9px;color:#475569;margin-bottom:2px">前右 FR · CCW</div>
+          <div class="motor-bar-bg"><div class="motor-bar" id="bar-m2" style="width:50%;background:linear-gradient(90deg,#EF4444,#FCA5A5)"></div></div>
+        </div>
+        <div class="motor-pct" id="pct-m2">50%</div>
+      </div>
+      <div class="motor-row">
+        <div class="motor-label" style="color:#EF4444">M3</div>
+        <div style="flex:1">
+          <div style="font-size:9px;color:#475569;margin-bottom:2px">後右 RR · CW</div>
+          <div class="motor-bar-bg"><div class="motor-bar" id="bar-m3" style="width:50%;background:linear-gradient(90deg,#EF4444,#FCA5A5)"></div></div>
+        </div>
+        <div class="motor-pct" id="pct-m3">50%</div>
+      </div>
+      <div class="motor-row" style="margin-bottom:0">
+        <div class="motor-label" style="color:#22C55E">M4</div>
+        <div style="flex:1">
+          <div style="font-size:9px;color:#475569;margin-bottom:2px">後左 RL · CCW</div>
+          <div class="motor-bar-bg"><div class="motor-bar" id="bar-m4" style="width:50%;background:linear-gradient(90deg,#22C55E,#86EFAC)"></div></div>
+        </div>
+        <div class="motor-pct" id="pct-m4">50%</div>
+      </div>
+    </div>
+
+    <!-- Force breakdown panel -->
+    <div class="force-panel">
+      <div style="font-size:10px;color:#14B8A6;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">推力分配</div>
+      <div class="force-row">
+        <div style="display:flex;align-items:center;width:60px"><div class="force-dot" style="background:#22C55E"></div><span style="font-size:11px">升力</span></div>
+        <div class="force-bar-bg"><div class="force-bar" id="fb-lift" style="background:#22C55E"></div></div>
+        <div style="font-size:11px;font-weight:700;color:#22C55E;width:38px;text-align:right" id="fv-lift">100%</div>
+      </div>
+      <div class="force-row">
+        <div style="display:flex;align-items:center;width:60px"><div class="force-dot" style="background:#F97316"></div><span style="font-size:11px">前進</span></div>
+        <div class="force-bar-bg"><div class="force-bar" id="fb-fwd" style="background:#F97316"></div></div>
+        <div style="font-size:11px;font-weight:700;color:#F97316;width:38px;text-align:right" id="fv-fwd">0%</div>
+      </div>
+      <div class="force-row">
+        <div style="display:flex;align-items:center;width:60px"><div class="force-dot" style="background:#3B82F6"></div><span style="font-size:11px">側移</span></div>
+        <div class="force-bar-bg"><div class="force-bar" id="fb-lat" style="background:#3B82F6"></div></div>
+        <div style="font-size:11px;font-weight:700;color:#3B82F6;width:38px;text-align:right" id="fv-lat">0%</div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;padding-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#64748B">合力向量</span>
+          <span id="total-force" style="color:#2DD4BF;font-weight:700">T×1.00</span>
+        </div>
+        <svg id="force-donut" width="170" height="130" style="margin-top:4px;display:block;margin-left:auto;margin-right:auto"></svg>
+      </div>
+    </div>
+
+    <!-- Angle HUD -->
+    <div class="angle-hud">
+      <div style="font-size:10px;color:#14B8A6;font-weight:700;margin-bottom:6px">飛行姿態</div>
+      <div class="angle-row">
+        <span style="color:#64748B;font-size:11px">俯仰 Pitch</span>
+        <span class="angle-val" id="hud-pitch" style="color:#F97316">0°</span>
+      </div>
+      <div class="angle-row">
+        <span style="color:#64748B;font-size:11px">橫滾 Roll</span>
+        <span class="angle-val" id="hud-roll" style="color:#3B82F6">0°</span>
+      </div>
+      <div class="angle-row">
+        <span style="color:#64748B;font-size:11px">偏航 Yaw</span>
+        <span class="angle-val" id="hud-yaw" style="color:#A78BFA">0°</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl-panel">
+      <div class="ctrl-grp">
+        <div class="ctrl-lbl"><span>俯仰 Pitch</span><span id="lbl-p">0°</span></div>
+        <input type="range" id="sl-pitch" min="-65" max="65" value="0" oninput="onSlider()">
+        <div style="font-size:9px;color:#475569;display:flex;justify-content:space-between"><span>後退</span><span>前進</span></div>
+      </div>
+      <div class="ctrl-grp">
+        <div class="ctrl-lbl"><span>橫滾 Roll</span><span id="lbl-r">0°</span></div>
+        <input type="range" id="sl-roll" min="-65" max="65" value="0" oninput="onSlider()">
+        <div style="font-size:9px;color:#475569;display:flex;justify-content:space-between"><span>左移</span><span>右移</span></div>
+      </div>
+      <div class="ctrl-grp">
+        <div class="ctrl-lbl"><span>偏航 Yaw</span><span id="lbl-y">0°</span></div>
+        <input type="range" id="sl-yaw" min="-180" max="180" value="0" oninput="onSlider()">
+        <div style="font-size:9px;color:#475569;display:flex;justify-content:space-between"><span>左旋</span><span>右旋</span></div>
+      </div>
+      <div class="ctrl-grp" style="min-width:110px">
+        <div class="ctrl-lbl"><span>基礎油門</span><span id="lbl-t">50%</span></div>
+        <input type="range" id="sl-thr" min="20" max="100" value="50" oninput="onSlider()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-p" onclick="resetAll()" style="font-size:11px">重置</button>
+        <button class="btn" onclick="randomMode()" style="font-size:11px">隨機</button>
+      </div>
+    </div>
+
+    <!-- Quiz Panel -->
+    <div class="quiz-panel" id="quiz-panel">
+      <div class="quiz-head">
+        <span style="font-size:13px;font-weight:700">🎯 小測驗</span>
+        <button class="btn" onclick="toggleQuiz()" style="padding:3px 10px;font-size:11px">隱藏</button>
+      </div>
+      <div class="quiz-body" id="quiz-body"></div>
+    </div>
+    <button class="quiz-fab hidden" id="quiz-fab" onclick="toggleQuiz()">🎯</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════
+// OrbitControls
+// ═══════════════════════
+class OrbitControls {
+  constructor(cam, el) {
+    this.cam = cam; this.el = el;
+    this.enableDamping = true; this.dampingFactor = 0.07;
+    this.minDist = 5; this.maxDist = 22;
+    this.target = new THREE.Vector3(0,0,0);
+    this._s = {theta:-0.5, phi:1.1, r:12};
+    this._t = {theta:-0.5, phi:1.1, r:12};
+    this._drag = false; this._lm = {x:0,y:0}; this._pd = 0;
+    el.addEventListener('mousedown', e=>{this._drag=true;this._lm={x:e.clientX,y:e.clientY};});
+    el.addEventListener('mousemove', e=>{
+      if(!this._drag) return;
+      this._t.theta -= (e.clientX-this._lm.x)*.007;
+      this._t.phi = Math.max(.1,Math.min(Math.PI-.1,this._t.phi-(e.clientY-this._lm.y)*.007));
+      this._lm={x:e.clientX,y:e.clientY};
+    });
+    el.addEventListener('mouseup',()=>this._drag=false);
+    el.addEventListener('mouseleave',()=>this._drag=false);
+    el.addEventListener('wheel',e=>{this._t.r=Math.max(this.minDist,Math.min(this.maxDist,this._t.r+e.deltaY*.012));},{passive:true});
+    el.addEventListener('touchstart',e=>{
+      if(e.touches.length===1){this._drag=true;this._lm={x:e.touches[0].clientX,y:e.touches[0].clientY};}
+      if(e.touches.length===2) this._pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(e.touches.length===1&&this._drag){
+        this._t.theta-=(e.touches[0].clientX-this._lm.x)*.007;
+        this._t.phi=Math.max(.1,Math.min(Math.PI-.1,this._t.phi-(e.touches[0].clientY-this._lm.y)*.007));
+        this._lm={x:e.touches[0].clientX,y:e.touches[0].clientY};
+      }
+      if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);this._t.r=Math.max(this.minDist,Math.min(this.maxDist,this._t.r-(d-this._pd)*.02));this._pd=d;}
+    },{passive:true});
+    el.addEventListener('touchend',()=>this._drag=false);
+  }
+  update(){
+    const f=this.enableDamping?this.dampingFactor:1;
+    this._s.theta+=(this._t.theta-this._s.theta)*f;
+    this._s.phi+=(this._t.phi-this._s.phi)*f;
+    this._s.r+=(this._t.r-this._s.r)*f;
+    const{r,theta,phi}=this._s;
+    this.cam.position.set(this.target.x+r*Math.sin(phi)*Math.sin(theta),this.target.y+r*Math.cos(phi),this.target.z+r*Math.sin(phi)*Math.cos(theta));
+    this.cam.lookAt(this.target);
+  }
+}
+
+// ═══════════════════════
+// Globals
+// ═══════════════════════
+let scene, camera, renderer, controls, clock;
+let droneGroup;
+let arrowTotalThrust, arrowLift, arrowFwd, arrowLat;
+let motorArrows = [], propDiscs = [];
+let groundGrid;
+const MOTOR_POS = [
+  new THREE.Vector3(-0.75, 0, 0.75),
+  new THREE.Vector3( 0.75, 0, 0.75),
+  new THREE.Vector3( 0.75, 0,-0.75),
+  new THREE.Vector3(-0.75, 0,-0.75),
+];
+// Motor spin dir: CW=+1, CCW=-1
+const MOTOR_DIR = [1, -1, 1, -1];
+const MOTOR_COLORS = [0x22C55E, 0xEF4444, 0xEF4444, 0x22C55E];
+
+let S = { pitch: 0, roll: 0, yaw: 0, throttle: 50 };
+let propSpeeds = [0.5, 0.5, 0.5, 0.5];
+let donutArc;
+
+// ═══════════════════════
+// Physics
+// ═══════════════════════
+function calcMotors(pitch, roll, yaw, thr) {
+  const p = pitch * Math.PI / 180;
+  const r = roll  * Math.PI / 180;
+  const combinedCos = Math.max(Math.cos(p) * Math.cos(r), 0.25);
+  const altComp = thr / 100 / combinedCos;
+
+  const pitchMix = Math.sin(p) * 0.18;
+  const rollMix  = Math.sin(r) * 0.18;
+  const yawNorm  = (yaw / 180) * 0.12;
+
+  // M1 FL, M2 FR, M3 RR, M4 RL
+  const t = [
+    altComp * 0.25 - pitchMix + rollMix + yawNorm,
+    altComp * 0.25 - pitchMix - rollMix - yawNorm,
+    altComp * 0.25 + pitchMix - rollMix + yawNorm,
+    altComp * 0.25 + pitchMix + rollMix - yawNorm,
+  ].map(v => Math.max(0.05, Math.min(1.0, v)));
+
+  return t;
+}
+
+function calcForces(pitch, roll, throttle) {
+  const p = pitch * Math.PI / 180;
+  const r = roll  * Math.PI / 180;
+  const T = throttle / 100;
+  const lift    = T * Math.cos(p) * Math.cos(r);
+  const forward = T * Math.sin(Math.abs(p)) * Math.sign(-pitch);
+  const lateral = T * Math.sin(Math.abs(r)) * Math.sign(-roll);
+  const total   = T / Math.max(Math.cos(p) * Math.cos(r), 0.25);
+  return { lift, forward, lateral, total };
+}
+
+// ═══════════════════════
+// Scene
+// ═══════════════════════
+function initScene() {
+  const canvas = document.getElementById('cv');
+  const cont = canvas.parentElement;
+  renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setSize(cont.clientWidth, cont.clientHeight);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x050E1A, 0.025);
+
+  camera = new THREE.PerspectiveCamera(55, cont.clientWidth / cont.clientHeight, 0.1, 200);
+  controls = new OrbitControls(camera, canvas);
+
+  clock = new THREE.Clock();
+
+  // Lights
+  scene.add(new THREE.HemisphereLight(0x0EA5E9, 0x082030, 0.7));
+  const sun = new THREE.DirectionalLight(0xFFFFFF, 1.3);
+  sun.position.set(6, 10, 6);
+  sun.castShadow = true;
+  scene.add(sun);
+  scene.add(new THREE.PointLight(0x14B8A6, 2.0, 12, 2));
+
+  buildStars();
+  buildGround();
+  buildDrone();
+  buildForceArrows();
+
+  window.addEventListener('resize', onResize);
+}
+
+function buildStars() {
+  const geo = new THREE.BufferGeometry();
+  const N = 400;
+  const pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i*3]   = (Math.random()-0.5)*100;
+    pos[i*3+1] = Math.random()*50 + 5;
+    pos[i*3+2] = (Math.random()-0.5)*100;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({color: 0x88CCFF, size: 0.08, transparent: true, opacity: 0.6});
+  scene.add(new THREE.Points(geo, mat));
+}
+
+function buildGround() {
+  const geo = new THREE.PlaneGeometry(60, 60);
+  const mat = new THREE.MeshStandardMaterial({color: 0x050E1A, roughness: 1});
+  const plane = new THREE.Mesh(geo, mat);
+  plane.rotation.x = -Math.PI/2;
+  plane.position.y = -4;
+  plane.receiveShadow = true;
+  scene.add(plane);
+  const grid = new THREE.GridHelper(60, 60, 0x0C2A3A, 0x071520);
+  grid.position.y = -4;
+  scene.add(grid);
+}
+
+function buildDrone() {
+  droneGroup = new THREE.Group();
+
+  const armMat = new THREE.MeshStandardMaterial({color: 0x1A1A2E, metalness: 0.8, roughness: 0.3});
+  const bodyMat = new THREE.MeshStandardMaterial({color: 0x0F172A, metalness: 0.9, roughness: 0.2});
+
+  // Two crossing arm bars
+  function makeArm(dir) {
+    const len = 2.12;
+    const geo = new THREE.CylinderGeometry(0.03, 0.03, len, 8);
+    const mesh = new THREE.Mesh(geo, armMat);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+    mesh.castShadow = true;
+    return mesh;
+  }
+  droneGroup.add(makeArm(new THREE.Vector3(-1,0,1)));
+  droneGroup.add(makeArm(new THREE.Vector3(1,0,1)));
+
+  // Center body (octagon-ish plate)
+  const bodyGeo = new THREE.CylinderGeometry(0.3, 0.28, 0.06, 8);
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.castShadow = true;
+  droneGroup.add(body);
+
+  // Flight controller board (top)
+  const fcGeo = new THREE.BoxGeometry(0.22, 0.025, 0.22);
+  const fcMat = new THREE.MeshStandardMaterial({color: 0x003311, metalness: 0.5});
+  const fc = new THREE.Mesh(fcGeo, fcMat);
+  fc.position.y = 0.045;
+  droneGroup.add(fc);
+
+  // Camera/gimbal on front
+  const camGeo = new THREE.BoxGeometry(0.1, 0.09, 0.06);
+  const camMat = new THREE.MeshStandardMaterial({color: 0x111111, metalness: 0.8});
+  const cam = new THREE.Mesh(camGeo, camMat);
+  cam.position.set(0, 0.01, 0.32);
+  droneGroup.add(cam);
+
+  // Antenna
+  const antGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.35, 6);
+  const antMat = new THREE.MeshStandardMaterial({color: 0x222222});
+  const ant = new THREE.Mesh(antGeo, antMat);
+  ant.position.set(0.1, 0.22, -0.1);
+  droneGroup.add(ant);
+
+  // Motors + Props
+  propDiscs = [];
+  motorArrows = [];
+  MOTOR_POS.forEach((pos, i) => {
+    // Motor bell
+    const motorGeo = new THREE.CylinderGeometry(0.1, 0.08, 0.09, 14);
+    const motorMat = new THREE.MeshStandardMaterial({
+      color: 0x111122, metalness: 0.95, roughness: 0.1,
+      emissive: new THREE.Color(MOTOR_COLORS[i]).multiplyScalar(0.08)
+    });
+    const motor = new THREE.Mesh(motorGeo, motorMat);
+    motor.position.copy(pos);
+    motor.castShadow = true;
+    droneGroup.add(motor);
+
+    // Motor accent ring
+    const ringGeo = new THREE.TorusGeometry(0.09, 0.012, 6, 20);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: MOTOR_COLORS[i], emissive: new THREE.Color(MOTOR_COLORS[i]).multiplyScalar(0.4),
+      metalness: 0.6, roughness: 0.3
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(pos);
+    ring.position.y += 0.04;
+    ring.rotation.x = Math.PI/2;
+    droneGroup.add(ring);
+
+    // Propeller disc (spinning)
+    const propGroup = new THREE.Group();
+    // 2 crossed blades
+    for (let b = 0; b < 2; b++) {
+      const bladeGeo = new THREE.BoxGeometry(0.58, 0.01, 0.065);
+      const bladeMat = new THREE.MeshStandardMaterial({
+        color: 0x1A2A3A, transparent: true, opacity: 0.85,
+        emissive: new THREE.Color(0x14B8A6).multiplyScalar(0.15),
+        metalness: 0.3
+      });
+      const blade = new THREE.Mesh(bladeGeo, bladeMat);
+      blade.rotation.y = b * Math.PI/2;
+      propGroup.add(blade);
+    }
+    // Prop hub
+    const hubGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10);
+    const hubMat = new THREE.MeshStandardMaterial({color: 0x333333, metalness: 0.9});
+    propGroup.add(new THREE.Mesh(hubGeo, hubMat));
+
+    propGroup.position.copy(pos);
+    propGroup.position.y += 0.06;
+    droneGroup.add(propGroup);
+    propDiscs.push(propGroup);
+
+    // Per-motor thrust arrow (in drone frame)
+    const mArrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0,1,0),
+      pos.clone().add(new THREE.Vector3(0, 0.08, 0)),
+      0.5, 0xCCFFFF, 0.12, 0.07
+    );
+    droneGroup.add(mArrow);
+    motorArrows.push(mArrow);
+  });
+
+  // LED lights (visual)
+  const ledPos = [{p: new THREE.Vector3(0, 0.02, 0.75), c: 0xFF4444}, {p: new THREE.Vector3(0, 0.02,-0.75), c: 0x4488FF}];
+  ledPos.forEach(({p, c}) => {
+    const lGeo = new THREE.SphereGeometry(0.04, 6, 6);
+    const lMat = new THREE.MeshStandardMaterial({color: c, emissive: new THREE.Color(c), emissiveIntensity: 1});
+    const led = new THREE.Mesh(lGeo, lMat);
+    led.position.copy(p);
+    droneGroup.add(led);
+  });
+
+  scene.add(droneGroup);
+}
+
+function buildForceArrows() {
+  // World-frame arrows from drone center
+  const HEAD = 0.3;
+  arrowLift = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 2.0, 0x22C55E, HEAD, HEAD*0.6);
+  arrowFwd  = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 0.01, 0xF97316, HEAD, HEAD*0.6);
+  arrowLat  = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 0.01, 0x3B82F6, HEAD, HEAD*0.6);
+  arrowTotalThrust = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 2.2, 0xFFFFFF, 0.35, 0.18);
+
+  scene.add(arrowLift, arrowFwd, arrowLat, arrowTotalThrust);
+}
+
+// ═══════════════════════
+// Update Logic
+// ═══════════════════════
+function updateAll() {
+  const p = parseFloat(document.getElementById('sl-pitch').value);
+  const r = parseFloat(document.getElementById('sl-roll').value);
+  const y = parseFloat(document.getElementById('sl-yaw').value);
+  const t = parseFloat(document.getElementById('sl-thr').value);
+  S = { pitch: p, roll: r, yaw: y, throttle: t };
+
+  document.getElementById('lbl-p').textContent = p.toFixed(0) + '°';
+  document.getElementById('lbl-r').textContent = r.toFixed(0) + '°';
+  document.getElementById('lbl-y').textContent = y.toFixed(0) + '°';
+  document.getElementById('lbl-t').textContent = t.toFixed(0) + '%';
+  document.getElementById('hud-pitch').textContent = p.toFixed(0) + '°';
+  document.getElementById('hud-roll').textContent  = r.toFixed(0) + '°';
+  document.getElementById('hud-yaw').textContent   = y.toFixed(0) + '°';
+
+  // Drone rotation (smooth in animation loop)
+  droneGroup.rotation.x = p * Math.PI / 180;
+  droneGroup.rotation.z = r * Math.PI / 180;
+  droneGroup.rotation.y = y * Math.PI / 180;
+
+  // Motor thrusts
+  const motors = calcMotors(p, r, y, t);
+  propSpeeds = motors.map(m => m);
+
+  motors.forEach((m, i) => {
+    const pct = (m * 100).toFixed(0);
+    document.getElementById(`bar-m${i+1}`).style.width = Math.min(m * 100, 100) + '%';
+    document.getElementById(`pct-m${i+1}`).textContent = pct + '%';
+    // Update motor arrow length
+    if (motorArrows[i]) {
+      motorArrows[i].setLength(Math.max(0.05, m * 1.2), 0.15, 0.08);
+    }
+  });
+
+  // World-frame forces
+  const f = calcForces(p, r, t);
+  const maxF = f.total;
+  const liftPct  = Math.abs(f.lift)    / maxF;
+  const fwdPct   = Math.abs(f.forward) / maxF;
+  const latPct   = Math.abs(f.lateral) / maxF;
+
+  document.getElementById('fb-lift').style.width = (liftPct * 100).toFixed(1) + '%';
+  document.getElementById('fb-fwd' ).style.width = (fwdPct  * 100).toFixed(1) + '%';
+  document.getElementById('fb-lat' ).style.width = (latPct  * 100).toFixed(1) + '%';
+  document.getElementById('fv-lift').textContent = (liftPct * 100).toFixed(0) + '%';
+  document.getElementById('fv-fwd' ).textContent = (fwdPct  * 100).toFixed(0) + '%';
+  document.getElementById('fv-lat' ).textContent = (latPct  * 100).toFixed(0) + '%';
+  document.getElementById('total-force').textContent = 'T×' + f.total.toFixed(2);
+
+  // World-frame arrows
+  const SCALE = 3.0;
+  const liftDir = new THREE.Vector3(0,1,0);
+  const fwdSign = Math.sign(-p) || 1;
+  const latSign = Math.sign(-r) || 1;
+
+  arrowLift.setLength(Math.max(0.1, Math.abs(f.lift) * SCALE), 0.3, 0.15);
+  arrowLift.setDirection(liftDir);
+
+  arrowFwd.visible = Math.abs(f.forward) > 0.02;
+  arrowFwd.setLength(Math.max(0.1, Math.abs(f.forward) * SCALE), 0.28, 0.14);
+  arrowFwd.setDirection(new THREE.Vector3(0, 0, fwdSign));
+
+  arrowLat.visible = Math.abs(f.lateral) > 0.02;
+  arrowLat.setLength(Math.max(0.1, Math.abs(f.lateral) * SCALE), 0.28, 0.14);
+  arrowLat.setDirection(new THREE.Vector3(-latSign, 0, 0));
+
+  // Total thrust direction (follow drone body up)
+  const bodyUp = new THREE.Vector3(0,1,0).applyEuler(droneGroup.rotation);
+  arrowTotalThrust.setLength(Math.max(0.1, f.total * SCALE * 0.7), 0.35, 0.18);
+  arrowTotalThrust.setDirection(bodyUp.normalize());
+
+  // Update donut chart
+  updateDonut(liftPct, fwdPct, latPct);
+
+  // Update KaTeX formula result
+  updateFormulaCalc(p, r, t, f);
+
+  // SVG labels
+  updateSvgLabels(f, p, r);
+}
+
+// ═══════════════════════
+// D3 Donut Chart
+// ═══════════════════════
+function buildDonut() {
+  const svg = d3.select('#force-donut');
+  const W = 170, H = 130, R = 48, r = 28;
+  const g = svg.append('g').attr('transform', `translate(${W/2},${H/2+5})`);
+
+  const pie = d3.pie().value(d => d).sort(null);
+  const arc = d3.arc().innerRadius(r).outerRadius(R);
+  const data = [1, 0, 0];
+  const colors = ['#22C55E', '#F97316', '#3B82F6'];
+  const labels = ['升力', '前進', '側移'];
+
+  const arcs = g.selectAll('path')
+    .data(pie(data)).enter().append('path')
+    .attr('d', arc).attr('fill', (d,i) => colors[i])
+    .attr('opacity', 0.85);
+
+  // Center text
+  g.append('text').attr('text-anchor','middle').attr('dy','0.3em').attr('font-size','10px').attr('fill','#94A3B8').text('分配');
+
+  // Legend
+  const leg = svg.append('g').attr('transform', `translate(2,${H-22})`);
+  labels.forEach((l, i) => {
+    const x = i * 55;
+    leg.append('rect').attr('x', x).attr('y', 0).attr('width', 8).attr('height', 8).attr('rx', 2).attr('fill', colors[i]);
+    leg.append('text').attr('x', x+11).attr('y', 7).attr('font-size', '9px').attr('fill', '#64748B').text(l);
+  });
+
+  donutArc = { arcs, pie, arc, colors };
+}
+
+function updateDonut(lift, fwd, lat) {
+  if (!donutArc) return;
+  const total = lift + fwd + lat;
+  const data = total > 0 ? [lift/total, fwd/total, lat/total] : [1,0,0];
+  donutArc.arcs.data(donutArc.pie(data)).attr('d', donutArc.arc);
+}
+
+// ═══════════════════════
+// SVG Labels (3D projected)
+// ═══════════════════════
+function project(v3) {
+  const cont = document.getElementById('cv').parentElement;
+  const W = cont.clientWidth, H = cont.clientHeight;
+  const c = v3.clone().project(camera);
+  return { x: (c.x*.5+.5)*W, y: (-(c.y*.5)+.5)*H };
+}
+
+function updateSvgLabels(f, pitch, roll) {
+  const svg = document.getElementById('svgo');
+  svg.innerHTML = '';
+
+  const ns = 'http://www.w3.org/2000/svg';
+  function addLabel(pos3, text, color) {
+    const sc = project(pos3);
+    if (sc.x < 0 || sc.y < 0) return;
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('x', sc.x + 6);
+    t.setAttribute('y', sc.y);
+    t.setAttribute('fill', color);
+    t.setAttribute('font-size', '12');
+    t.setAttribute('font-weight', '700');
+    t.setAttribute('font-family', 'Inter,sans-serif');
+    t.setAttribute('text-shadow', '0 1px 4px #000');
+    t.textContent = text;
+    svg.appendChild(t);
+  }
+
+  const liftLen = Math.abs(f.lift) * 3;
+  const fwdLen  = Math.abs(f.forward) * 3;
+  const latLen  = Math.abs(f.lateral) * 3;
+
+  addLabel(new THREE.Vector3(0, liftLen + 0.4, 0), `升力 ${(Math.abs(f.lift)*100).toFixed(0)}%`, '#22C55E');
+  if (fwdLen > 0.1) addLabel(new THREE.Vector3(0, 0.2, fwdLen * Math.sign(-pitch) + 0.5), `前進力 ${(Math.abs(f.forward)*100).toFixed(0)}%`, '#F97316');
+  if (latLen > 0.1) addLabel(new THREE.Vector3(-latLen * Math.sign(-roll) - 0.5, 0.2, 0), `側移力 ${(Math.abs(f.lateral)*100).toFixed(0)}%`, '#3B82F6');
+}
+
+// ═══════════════════════
+// Formula Update
+// ═══════════════════════
+function updateFormulaCalc(p, r, t, f) {
+  const el = document.getElementById('f-calc');
+  const pRad = p * Math.PI / 180;
+  const rRad = r * Math.PI / 180;
+  const comp = 1 / Math.max(Math.cos(pRad) * Math.cos(rRad), 0.25);
+  try {
+    katex.render(`T_{comp} = \\frac{${t}\\%}{cos${p}°\\cdot cos${r}°} = ${(t * comp).toFixed(1)}\\%`, el, {throwOnError: false});
+  } catch(e) { el.textContent = `需要油門：${(t * comp).toFixed(1)}%`; }
+}
+
+// ═══════════════════════
+// Mode Presets
+// ═══════════════════════
+const MODES = {
+  hover:   { pitch:  0,  roll:  0, yaw:  0, msg: '懸停：四顆馬達均等出力，合力垂直向上 ✓' },
+  forward: { pitch:-30,  roll:  0, yaw:  0, msg: '前進30°：前側馬達減速、後側加速，升力53%→前進50%' },
+  race:    { pitch:-55,  roll:  0, yaw:  0, msg: '競速55°：極限前傾！升力57%→前進82%，需大量油門補償' },
+  back:    { pitch: 30,  roll:  0, yaw:  0, msg: '後退：機身後仰，前側馬達加速' },
+  left:    { pitch:  0,  roll:-30, yaw:  0, msg: '左移30°：右側馬達加速、左側減速，機身右傾' },
+  right:   { pitch:  0,  roll: 30, yaw:  0, msg: '右移30°：左側馬達加速、右側減速' },
+  yawL:    { pitch:  0,  roll:  0, yaw:-90, msg: '左旋：CW馬達組(M1,M3)加速→反扭矩使機身左轉，機身不傾斜！' },
+  yawR:    { pitch:  0,  roll:  0, yaw: 90, msg: '右旋：CCW馬達組(M2,M4)加速→反扭矩使機身右轉' },
+};
+
+function setMode(name) {
+  const m = MODES[name];
+  if (!m) return;
+  document.getElementById('sl-pitch').value = m.pitch;
+  document.getElementById('sl-roll').value  = m.roll;
+  document.getElementById('sl-yaw').value   = m.yaw;
+  updateAll();
+  showToast(m.msg);
+  document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('m-' + name);
+  if (btn) btn.classList.add('active');
+}
+
+function randomMode() {
+  const keys = Object.keys(MODES);
+  setMode(keys[Math.floor(Math.random() * keys.length)]);
+}
+
+function resetAll() {
+  ['sl-pitch','sl-roll','sl-yaw'].forEach(id => { document.getElementById(id).value = 0; });
+  document.getElementById('sl-thr').value = 50;
+  document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+  document.getElementById('m-hover').classList.add('active');
+  updateAll();
+  showToast('已重置為懸停狀態');
+}
+
+function onSlider() {
+  document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+  updateAll();
+}
+
+// ═══════════════════════
+// Efficiency Table
+// ═══════════════════════
+function buildEfficiencyTable() {
+  const angles = [0, 10, 20, 30, 45, 55, 65];
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html += '<tr style="color:#64748B"><th style="text-align:left;padding:2px 4px">傾角</th><th>升力%</th><th>前進%</th><th>需油門%</th></tr>';
+  angles.forEach(a => {
+    const rad = a * Math.PI/180;
+    const lift = Math.cos(rad) * 100;
+    const fwd  = Math.sin(rad) * 100;
+    const comp = 100 / Math.max(Math.cos(rad), 0.25);
+    const liftColor = a <= 30 ? '#22C55E' : a <= 55 ? '#F97316' : '#EF4444';
+    html += `<tr style="border-top:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:3px 4px;color:#2DD4BF">${a}°</td>
+      <td style="color:${liftColor};text-align:center">${lift.toFixed(0)}%</td>
+      <td style="color:#F97316;text-align:center">${fwd.toFixed(0)}%</td>
+      <td style="color:#A78BFA;text-align:center">${comp.toFixed(0)}%</td>
+    </tr>`;
+  });
+  html += '</table>';
+  document.getElementById('efficiency-table').innerHTML = html;
+}
+
+// ═══════════════════════
+// Quiz
+// ═══════════════════════
+const QS = [
+  { q: '穿越機前進飛行時，前側馬達應該如何調整？',
+    opts: ['加速，產生更多推力', '減速，使機身前傾', '不變，靠空氣動力前進', '全部停止'],
+    ans: 1, exp: '要使機身向前傾斜，需要讓前側馬達減速（降低升力）、後側加速，產生俯仰力矩使機身前傾，合力才會向前。' },
+  { q: '穿越機以30°前傾飛行，升力佔總推力的百分比約為？',
+    opts: ['100%', '87%（cos30°）', '50%', '30%'],
+    ans: 1, exp: 'cos(30°)≈0.866，所以升力≈86.6%的總推力，前進力≈sin(30°)=50%。注意兩者不是相加100%，而是垂直分量關係。' },
+  { q: '偏航（Yaw）旋轉為何不需要機身傾斜？',
+    opts: ['因為靠尾槳控制', '利用馬達反扭矩：對角馬達組差速產生淨轉矩', '靠飛行控制器強制執行', '偏航一定會傾斜'],
+    ans: 1, exp: '四軸機中，CW螺旋槳(M1,M3)和CCW螺旋槳(M2,M4)各產生反向扭矩。調整兩組的相對轉速即可產生淨偏航力矩，機身無需傾斜。' },
+  { q: '傾角45°飛行時，要維持飛行高度，需要比懸停多出多少油門？',
+    opts: ['約14%（cos45°≈0.707，需×1.41）', '45%', '50%', '不需要額外油門'],
+    ans: 0, exp: '需要油門 = 基礎油門 / cos(45°) = 基礎 × 1/0.707 ≈ 基礎 × 1.41，即多41%油門才能維持相同升力對抗重力。' },
+  { q: '左移動作（橫滾Roll）時，哪側馬達輸出較大？',
+    opts: ['左側（使機身向左傾）', '右側（使機身向右傾，合力向左）', '前側', '後側'],
+    ans: 1, exp: '要向左移動，機身需向左傾（左滾/Left Roll）。右側馬達加速產生更大升力，左側減速，產生向右的傾斜，但合力水平分量指向左方。' },
+];
+let qIdx = 0;
+function renderQuiz() {
+  const q = QS[qIdx % QS.length];
+  document.getElementById('quiz-body').innerHTML = `
+    <div style="font-size:10px;color:#475569;margin-bottom:6px">第 ${qIdx % QS.length + 1} / ${QS.length} 題</div>
+    <div class="q-text">${q.q}</div>
+    <div class="q-opt">${q.opts.map((o,i)=>`<button class="opt-btn" onclick="chkQ(${i})" id="qo${i}">${String.fromCharCode(65+i)}. ${o}</button>`).join('')}</div>
+    <div class="q-fb" id="qfb"></div>
+    <button class="btn btn-p" id="qnxt" style="display:none;margin-top:10px;width:100%" onclick="nextQ()">下一題 →</button>
+  `;
+}
+function chkQ(c) {
+  const q = QS[qIdx % QS.length];
+  document.querySelectorAll('.opt-btn').forEach(b=>b.disabled=true);
+  document.getElementById(`qo${c}`).classList.add(c===q.ans?'correct':'wrong');
+  document.getElementById(`qo${q.ans}`).classList.add('correct');
+  const fb = document.getElementById('qfb');
+  fb.style.display='block';
+  fb.style.background = c===q.ans?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)';
+  fb.style.border = `1px solid ${c===q.ans?'#22C55E':'#EF4444'}`;
+  fb.style.color = c===q.ans?'#4ADE80':'#FCA5A5';
+  fb.innerHTML = (c===q.ans?'✅ 正確！':'❌ 錯誤。') + ' ' + q.exp;
+  document.getElementById('qnxt').style.display='block';
+}
+function nextQ() { qIdx++; renderQuiz(); }
+function toggleQuiz() {
+  const p=document.getElementById('quiz-panel'),f=document.getElementById('quiz-fab');
+  if(p.classList.contains('hidden')){p.classList.remove('hidden');f.classList.add('hidden');}
+  else{p.classList.add('hidden');f.classList.remove('hidden');}
+}
+
+// ═══════════════════════
+// Toast
+// ═══════════════════════
+let _tt;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(_tt);
+  _tt=setTimeout(()=>t.style.opacity='0',3000);
+}
+
+function toggleFS() {
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+
+function onResize() {
+  const cont = document.getElementById('cv').parentElement;
+  renderer.setSize(cont.clientWidth, cont.clientHeight);
+  camera.aspect = cont.clientWidth / cont.clientHeight;
+  camera.updateProjectionMatrix();
+}
+
+// ═══════════════════════
+// Animation Loop
+// ═══════════════════════
+let frameN = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  controls.update();
+  frameN++;
+
+  // Spin propellers based on motor speed
+  propDiscs.forEach((pd, i) => {
+    pd.rotation.y += propSpeeds[i] * MOTOR_DIR[i] * dt * 25;
+  });
+
+  // Subtle hover oscillation in hover mode
+  if (S.pitch === 0 && S.roll === 0) {
+    droneGroup.position.y = Math.sin(Date.now() * 0.001) * 0.08;
+  } else {
+    droneGroup.position.y *= 0.95; // settle
+  }
+
+  if (frameN % 3 === 0) updateSvgLabels(calcForces(S.pitch, S.roll, S.throttle), S.pitch, S.roll);
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════
+// KaTeX Formulas
+// ═══════════════════════
+function renderFormulas() {
+  [
+    { id:'f1', tex:'F_{lift} = T \\cdot \\cos\\theta \\cdot \\cos\\phi' },
+    { id:'f2', tex:'F_{fwd}  = T \\cdot \\sin\\theta' },
+    { id:'f3', tex:'F_{lat}  = T \\cdot \\sin\\phi' },
+    { id:'f4', tex:'T_{req}  = \\dfrac{mg}{\\cos\\theta \\cdot \\cos\\phi}' },
+  ].forEach(({id, tex}) => {
+    try { katex.render(tex, document.getElementById(id), {throwOnError:false, displayMode:false}); }
+    catch(e) { document.getElementById(id).textContent = tex; }
+  });
+}
+
+// ═══════════════════════
+// Init
+// ═══════════════════════
+window.addEventListener('load', () => {
+  initScene();
+  renderFormulas();
+  buildDonut();
+  buildEfficiencyTable();
+  renderQuiz();
+  updateAll();
+  animate();
+  setTimeout(() => showToast('🎮 拖曳旋轉視角 · 滑動底部滑桿調整飛行姿態'), 800);
+});
+</script>
+
+<div style="position:fixed;bottom:4px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(71,85,105,.45);pointer-events:none;white-space:nowrap">
+  掌握力學，你就能駕馭天空 · 由 AetherViz Master 為你生成 ❤️
+</div>
+</body>
+</html>

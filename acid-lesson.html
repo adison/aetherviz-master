@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>酸鹼中和 | Acid-Base Neutralization | AetherViz Master</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+:root{--chem:linear-gradient(135deg,#F59E0B 0%,#EF4444 100%);--bg:linear-gradient(180deg,#0F172A 0%,#1C0A00 100%);--glass:rgba(255,255,255,0.07);--border:rgba(245,158,11,0.25);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:linear-gradient(180deg,#0F172A 0%,#1a0800 60%,#0F172A 100%);color:#F8FAFC;font-family:Inter,system-ui,sans-serif;height:100vh;overflow:hidden;}
+nav{background:rgba(15,23,42,0.9);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:relative;z-index:100;}
+.nav-title{font-size:16px;font-weight:700;background:var(--chem);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-sub{font-size:11px;color:#94A3B8;margin-left:8px;}
+.nav-btns{display:flex;gap:8px;}
+.btn{padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all 0.2s;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.08);color:#F8FAFC;}
+.btn:hover{background:rgba(255,255,255,0.18);transform:translateY(-1px);}
+.btn-p{background:var(--chem);border-color:transparent;}
+.btn-p:hover{opacity:0.85;transform:translateY(-1px);}
+.layout{display:flex;height:calc(100vh - 54px);}
+.sidebar{width:288px;background:rgba(15,23,42,0.92);border-right:1px solid var(--border);overflow-y:auto;padding:14px;flex-shrink:0;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(245,158,11,0.4);border-radius:2px;}
+.sec{margin-bottom:16px;}
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#F59E0B;margin-bottom:8px;}
+.obj-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:12px;color:#CBD5E1;line-height:1.5;}
+.obj-check{width:16px;height:16px;border:2px solid #F59E0B;border-radius:4px;flex-shrink:0;margin-top:1px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;}
+.obj-check.done{background:#F59E0B;}
+.formula-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;margin-bottom:8px;}
+.ion-legend{display:flex;flex-direction:column;gap:6px;font-size:12px;}
+.ion-row{display:flex;align-items:center;gap:8px;}
+.ion-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.explain{font-size:12px;color:#CBD5E1;line-height:1.7;}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin:2px;}
+.canvas-area{flex:1;position:relative;overflow:hidden;}
+#canvas-container{width:100%;height:100%;position:relative;}
+#three-canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+#svg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+.ph-box{position:absolute;top:12px;right:12px;background:rgba(15,23,42,0.88);border:1px solid var(--border);border-radius:14px;padding:12px 18px;backdrop-filter:blur(12px);text-align:center;min-width:120px;}
+.ph-val{font-size:36px;font-weight:900;line-height:1;}
+.ph-label{font-size:10px;color:#94A3B8;margin-top:2px;}
+.ph-scale{width:100%;height:10px;border-radius:5px;background:linear-gradient(to right,#EF4444,#F97316,#EAB308,#22C55E,#06B6D4,#3B82F6,#8B5CF6);position:relative;margin-top:8px;}
+.ph-needle{position:absolute;top:-4px;width:3px;height:18px;background:white;border-radius:2px;transform:translateX(-50%);transition:left .4s ease;box-shadow:0 0 8px rgba(255,255,255,.8);}
+.ph-status{font-size:11px;margin-top:4px;font-weight:600;}
+.ctrl-panel{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.88);border:1px solid var(--border);border-radius:16px;padding:14px 20px;backdrop-filter:blur(12px);display:flex;gap:20px;align-items:center;}
+.ctrl-group{display:flex;flex-direction:column;gap:4px;min-width:140px;}
+.ctrl-label{font-size:10px;color:#94A3B8;display:flex;justify-content:space-between;}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,0.15);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--chem);cursor:pointer;}
+.stats-row{display:flex;gap:12px;font-size:11px;}
+.stat{background:rgba(255,255,255,0.06);padding:6px 10px;border-radius:8px;text-align:center;}
+.stat-val{font-size:16px;font-weight:700;}
+.stat-lbl{font-size:9px;color:#94A3B8;margin-top:1px;}
+.quiz-panel{position:absolute;bottom:90px;right:12px;width:350px;background:rgba(15,23,42,0.92);border:1px solid var(--border);border-radius:16px;backdrop-filter:blur(12px);overflow:hidden;transition:all .3s ease;max-height:370px;}
+.quiz-panel.hidden{opacity:0;pointer-events:none;transform:translateY(20px);}
+.quiz-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);}
+.quiz-body{padding:16px;overflow-y:auto;max-height:310px;}
+.q-text{font-size:13px;line-height:1.6;margin-bottom:12px;}
+.q-opt{display:flex;flex-direction:column;gap:8px;}
+.opt-btn{padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#CBD5E1;font-size:12px;cursor:pointer;text-align:left;transition:.2s;}
+.opt-btn:hover{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);}
+.opt-btn.correct{background:rgba(34,197,94,0.2);border-color:#22C55E;color:#4ADE80;}
+.opt-btn.wrong{background:rgba(239,68,68,0.2);border-color:#EF4444;color:#FCA5A5;}
+.q-feedback{margin-top:10px;font-size:12px;padding:8px;border-radius:8px;display:none;}
+.q-next{margin-top:10px;width:100%;display:none;}
+.quiz-fab{position:absolute;bottom:12px;right:12px;width:50px;height:50px;border-radius:50%;background:var(--chem);border:none;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(245,158,11,.4);transition:transform .2s;color:white;z-index:50;}
+.quiz-fab:hover{transform:scale(1.1);}
+.quiz-fab.hidden{display:none;}
+.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,.95);color:#0F172A;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.curve-panel{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.88);border:1px solid var(--border);border-radius:12px;backdrop-filter:blur(12px);padding:8px 12px;}
+.curve-title{font-size:10px;color:#94A3B8;text-align:center;margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- 導覽列 -->
+<nav>
+  <div style="display:flex;align-items:center">
+    <span class="nav-title">酸鹼中和</span>
+    <span class="nav-sub">Acid-Base Neutralization</span>
+  </div>
+  <div class="nav-btns">
+    <button class="btn" onclick="resetScene()">重置</button>
+    <button class="btn" onclick="randomExperiment()">隨機實驗</button>
+    <button class="btn" onclick="toggleFS()">全螢幕</button>
+  </div>
+</nav>
+
+<!-- 版面 -->
+<div class="layout">
+  <!-- 側邊欄 -->
+  <div class="sidebar">
+    <div class="sec">
+      <div class="sec-title">學習目標</div>
+      <div class="obj-item"><div class="obj-check" onclick="this.classList.toggle('done');this.innerHTML=this.classList.contains('done')?'✓':''"></div>理解酸鹼中和的本質：H⁺ 與 OH⁻ 結合生成水</div>
+      <div class="obj-item"><div class="obj-check" onclick="this.classList.toggle('done');this.innerHTML=this.classList.contains('done')?'✓':''"></div>掌握 pH 的計算方法及其與酸鹼度的關係</div>
+      <div class="obj-item"><div class="obj-check" onclick="this.classList.toggle('done');this.innerHTML=this.classList.contains('done')?'✓':''"></div>理解滴定曲線的形狀及突變點的意義</div>
+      <div class="obj-item"><div class="obj-check" onclick="this.classList.toggle('done');this.innerHTML=this.classList.contains('done')?'✓':''"></div>識別指示劑顏色變化與中和反應的關係</div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">核心反應方程式</div>
+      <div class="formula-box">
+        <div id="f1" style="margin-bottom:6px;font-size:13px;"></div>
+        <div id="f2" style="margin-bottom:6px;font-size:13px;"></div>
+        <div id="f3" style="font-size:13px;"></div>
+      </div>
+      <div class="formula-box">
+        <div id="f4" style="margin-bottom:6px;font-size:12px;"></div>
+        <div id="f5" style="font-size:12px;"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">離子圖例</div>
+      <div class="ion-legend">
+        <div class="ion-row"><div class="ion-dot" style="background:#FF4444;box-shadow:0 0 8px #FF4444"></div><span style="font-size:12px">H⁺（氫離子）— 酸性</span></div>
+        <div class="ion-row"><div class="ion-dot" style="background:#4488FF;box-shadow:0 0 8px #4488FF"></div><span style="font-size:12px">OH⁻（氫氧根離子）— 鹼性</span></div>
+        <div class="ion-row"><div class="ion-dot" style="background:#FFAA00;box-shadow:0 0 8px #FFAA00"></div><span style="font-size:12px">Na⁺（鈉離子）— 旁觀離子</span></div>
+        <div class="ion-row"><div class="ion-dot" style="background:#44CC44;box-shadow:0 0 8px #44CC44"></div><span style="font-size:12px">Cl⁻（氯離子）— 旁觀離子</span></div>
+        <div class="ion-row"><div class="ion-dot" style="background:#88DDFF;opacity:.7"></div><span style="font-size:12px">H₂O（水分子）— 中和產物</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">原理解析</div>
+      <div class="explain">
+        酸鹼中和的本質是<strong style="color:#FBBF24">質子轉移</strong>：酸提供 H⁺，鹼提供 OH⁻，二者結合形成極性最弱的物質——水。<br><br>
+        就像磁鐵的正負極相吸，H⁺ 和 OH⁻ 一旦相遇，便以接近光速的反應速率完成結合。<br><br>
+        <strong style="color:#F97316">真實應用：</strong>胃酸過多時服用鹼性藥物（如 NaHCO₃）中和；污水處理中用石灰調節 pH；土壤改良加石灰中和酸性土。
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">pH 速查表</div>
+      <div style="font-size:11px;display:flex;flex-wrap:wrap;gap:4px;">
+        <span class="tag" style="background:rgba(239,68,68,.2);color:#FCA5A5">pH 1–3 強酸</span>
+        <span class="tag" style="background:rgba(249,115,22,.2);color:#FDBA74">pH 4–5 弱酸</span>
+        <span class="tag" style="background:rgba(234,179,8,.2);color:#FDE047">pH 6–6.9 微酸</span>
+        <span class="tag" style="background:rgba(34,197,94,.2);color:#4ADE80">pH 7 中性</span>
+        <span class="tag" style="background:rgba(6,182,212,.2);color:#67E8F9">pH 8–11 鹼性</span>
+        <span class="tag" style="background:rgba(139,92,246,.2);color:#C4B5FD">pH 12–14 強鹼</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 畫布區域 -->
+  <div class="canvas-area">
+    <div id="canvas-container">
+      <canvas id="three-canvas"></canvas>
+      <svg id="svg-overlay"></svg>
+
+      <!-- pH 顯示 -->
+      <div class="ph-box">
+        <div class="ph-val" id="ph-val" style="color:#FF4444">1.0</div>
+        <div class="ph-label">pH 值</div>
+        <div class="ph-scale"><div class="ph-needle" id="ph-needle" style="left:6.25%"></div></div>
+        <div class="ph-status" id="ph-status" style="color:#FF4444">強酸性</div>
+        <div style="font-size:10px;color:#94A3B8;margin-top:4px" id="ion-counts">H⁺: 30 | OH⁻: 0</div>
+      </div>
+
+      <!-- pH 曲線 -->
+      <div class="curve-panel">
+        <div class="curve-title">滴定曲線 (HCl vs NaOH)</div>
+        <svg id="ph-curve" width="240" height="110"></svg>
+      </div>
+
+      <!-- 控制面板 -->
+      <div class="ctrl-panel">
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>NaOH 滴加量</span><span id="naoh-val" style="color:#4488FF">0 滴</span></div>
+          <input type="range" id="naoh-slider" min="0" max="60" value="0" oninput="onNaOHChange(this.value)">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>動畫速度</span><span id="speed-val">1×</span></div>
+          <input type="range" id="speed-slider" min="1" max="5" value="2" oninput="onSpeedChange(this.value)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="btn btn-p" onclick="addAcid()">+ 加酸 HCl</button>
+          <button class="btn" onclick="addBase()">+ 加鹼 NaOH</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat"><div class="stat-val" id="h-count" style="color:#FF4444">30</div><div class="stat-lbl">H⁺</div></div>
+          <div class="stat"><div class="stat-val" id="oh-count" style="color:#4488FF">0</div><div class="stat-lbl">OH⁻</div></div>
+          <div class="stat"><div class="stat-val" id="neutral-count" style="color:#88DDFF">0</div><div class="stat-lbl">已中和</div></div>
+        </div>
+      </div>
+
+      <!-- 小測驗面板 -->
+      <div class="quiz-panel" id="quiz-panel">
+        <div class="quiz-head">
+          <span style="font-size:13px;font-weight:700">🧪 小測驗</span>
+          <button class="btn" onclick="toggleQuiz()" style="padding:3px 10px;font-size:11px">隱藏</button>
+        </div>
+        <div class="quiz-body" id="quiz-body"></div>
+      </div>
+      <button class="quiz-fab hidden" id="quiz-fab" onclick="toggleQuiz()">🧪</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// Inline OrbitControls
+// ═══════════════════════════════════════════
+class OrbitControls {
+  constructor(camera, domElement) {
+    this.camera = camera;
+    this.domElement = domElement;
+    this.enableDamping = true;
+    this.dampingFactor = 0.06;
+    this.minDistance = 4;
+    this.maxDistance = 18;
+    this.target = new THREE.Vector3(0, 0, 0);
+    this._s = { theta: 0.6, phi: 1.1, r: 9 };
+    this._t = { theta: 0.6, phi: 1.1, r: 9 };
+    this._drag = false;
+    this._last = { x: 0, y: 0 };
+    this._pinchDist = 0;
+    domElement.addEventListener('mousedown', e => { this._drag = true; this._last = { x: e.clientX, y: e.clientY }; });
+    domElement.addEventListener('mousemove', e => {
+      if (!this._drag) return;
+      this._t.theta -= (e.clientX - this._last.x) * 0.008;
+      this._t.phi = Math.max(0.15, Math.min(Math.PI - 0.15, this._t.phi - (e.clientY - this._last.y) * 0.008));
+      this._last = { x: e.clientX, y: e.clientY };
+    });
+    domElement.addEventListener('mouseup', () => this._drag = false);
+    domElement.addEventListener('mouseleave', () => this._drag = false);
+    domElement.addEventListener('wheel', e => {
+      this._t.r = Math.max(this.minDistance, Math.min(this.maxDistance, this._t.r + e.deltaY * 0.012));
+    }, { passive: true });
+    domElement.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) { this._drag = true; this._last = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
+      if (e.touches.length === 2) {
+        this._pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      }
+    }, { passive: true });
+    domElement.addEventListener('touchmove', e => {
+      if (e.touches.length === 1 && this._drag) {
+        this._t.theta -= (e.touches[0].clientX - this._last.x) * 0.008;
+        this._t.phi = Math.max(0.15, Math.min(Math.PI - 0.15, this._t.phi - (e.touches[0].clientY - this._last.y) * 0.008));
+        this._last = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      if (e.touches.length === 2) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        this._t.r = Math.max(this.minDistance, Math.min(this.maxDistance, this._t.r - (d - this._pinchDist) * 0.02));
+        this._pinchDist = d;
+      }
+    }, { passive: true });
+    domElement.addEventListener('touchend', () => this._drag = false);
+  }
+  update() {
+    const f = this.enableDamping ? this.dampingFactor : 1;
+    this._s.theta += (this._t.theta - this._s.theta) * f;
+    this._s.phi += (this._t.phi - this._s.phi) * f;
+    this._s.r += (this._t.r - this._s.r) * f;
+    const { r, theta, phi } = this._s;
+    this.camera.position.set(
+      this.target.x + r * Math.sin(phi) * Math.sin(theta),
+      this.target.y + r * Math.cos(phi),
+      this.target.z + r * Math.sin(phi) * Math.cos(theta)
+    );
+    this.camera.lookAt(this.target);
+  }
+}
+
+// ═══════════════════════════════════════════
+// App State
+// ═══════════════════════════════════════════
+let scene, camera, renderer, controls, clock;
+let flashLight;
+let liquidMesh, liquidMat;
+let ions = [];
+let totalNeutralized = 0;
+let targetHCount = 30, targetOHCount = 0;
+let simSpeed = 2;
+let animId;
+
+// Ion data: {mesh, type, vx, vy, vz, active, age, lifetime}
+const ION_COLORS = { H: 0xFF3333, OH: 0x3388FF, Na: 0xFFAA00, Cl: 0x33CC44, H2O: 0x99EEFF };
+const ION_SIZES  = { H: 0.075, OH: 0.095, Na: 0.088, Cl: 0.082 };
+const BEAKER_R = 1.25, BEAKER_H = 1.75;
+
+// ═══════════════════════════════════════════
+// Scene Setup
+// ═══════════════════════════════════════════
+function initScene() {
+  const canvas = document.getElementById('three-canvas');
+  const container = document.getElementById('canvas-container');
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setSize(container.clientWidth, container.clientHeight);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0F172A, 0.08);
+
+  camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 100);
+  camera.position.set(4, 3, 7);
+  camera.lookAt(0, 0, 0);
+
+  controls = new OrbitControls(camera, canvas);
+
+  clock = new THREE.Clock();
+
+  // Lights
+  const hemi = new THREE.HemisphereLight(0xffeedd, 0x112244, 0.6);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+  sun.position.set(5, 8, 5);
+  sun.castShadow = true;
+  scene.add(sun);
+
+  const fill = new THREE.PointLight(0xF59E0B, 0.8, 15);
+  fill.position.set(-3, 2, -3);
+  scene.add(fill);
+
+  flashLight = new THREE.PointLight(0xFFFFFF, 0, 8);
+  scene.add(flashLight);
+
+  // Beaker glass
+  buildBeaker();
+
+  // Lab table
+  const tableGeo = new THREE.BoxGeometry(6, 0.15, 5);
+  const tableMat = new THREE.MeshPhongMaterial({ color: 0x1a0f00, shininess: 80 });
+  const table = new THREE.Mesh(tableGeo, tableMat);
+  table.position.y = -2.15;
+  table.receiveShadow = true;
+  scene.add(table);
+
+  // Grid lines on table
+  const gridHelper = new THREE.GridHelper(6, 12, 0x332200, 0x221100);
+  gridHelper.position.y = -2.07;
+  scene.add(gridHelper);
+
+  // Burette (dropping device)
+  buildBurette();
+
+  window.addEventListener('resize', onResize);
+}
+
+function buildBeaker() {
+  // Outer glass cylinder
+  const outerGeo = new THREE.CylinderGeometry(1.35, 1.35, 3.7, 48, 1, true);
+  const glassMat = new THREE.MeshPhongMaterial({
+    color: 0xCCEEFF, transparent: true, opacity: 0.12,
+    side: THREE.DoubleSide, shininess: 200, specular: 0xFFFFFF
+  });
+  scene.add(new THREE.Mesh(outerGeo, glassMat));
+
+  // Beaker bottom
+  const bottomGeo = new THREE.CircleGeometry(1.35, 48);
+  const bottom = new THREE.Mesh(bottomGeo, glassMat.clone());
+  bottom.rotation.x = -Math.PI / 2;
+  bottom.position.y = -1.85;
+  scene.add(bottom);
+
+  // Beaker rim
+  const rimGeo = new THREE.TorusGeometry(1.35, 0.04, 8, 48);
+  const rimMat = new THREE.MeshPhongMaterial({ color: 0xAADDFF, transparent: true, opacity: 0.3 });
+  const rim = new THREE.Mesh(rimGeo, rimMat);
+  rim.position.y = 1.85;
+  scene.add(rim);
+
+  // Liquid inside
+  liquidMat = new THREE.MeshPhongMaterial({
+    color: 0xFF3333, transparent: true, opacity: 0.35,
+    emissive: 0xFF1111, emissiveIntensity: 0.15
+  });
+  const liquidGeo = new THREE.CylinderGeometry(1.22, 1.22, 3.4, 48);
+  liquidMesh = new THREE.Mesh(liquidGeo, liquidMat);
+  liquidMesh.position.y = -0.15;
+  scene.add(liquidMesh);
+
+  // Graduation marks
+  for (let i = -1.5; i <= 1.5; i += 0.5) {
+    const markGeo = new THREE.BoxGeometry(0.04, 0.02, 0.04);
+    const markMat = new THREE.MeshPhongMaterial({ color: 0x88AACC, transparent: true, opacity: 0.5 });
+    const mark = new THREE.Mesh(markGeo, markMat);
+    mark.position.set(1.38, i, 0);
+    scene.add(mark);
+  }
+}
+
+function buildBurette() {
+  // Vertical burette tube above beaker
+  const tubeGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.5, 12);
+  const tubeMat = new THREE.MeshPhongMaterial({ color: 0xCCEEFF, transparent: true, opacity: 0.25 });
+  const tube = new THREE.Mesh(tubeGeo, tubeMat);
+  tube.position.set(0, 3.1, 0);
+  scene.add(tube);
+
+  // NaOH liquid inside burette
+  const liqGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.3, 12);
+  const liqMat = new THREE.MeshPhongMaterial({ color: 0x3388FF, transparent: true, opacity: 0.5 });
+  const liq = new THREE.Mesh(liqGeo, liqMat);
+  liq.position.set(0, 3.1, 0);
+  scene.add(liq);
+}
+
+// ═══════════════════════════════════════════
+// Ion System
+// ═══════════════════════════════════════════
+function spawnIon(type, pos) {
+  const r = ION_SIZES[type];
+  const geo = new THREE.SphereGeometry(r, 10, 10);
+  const mat = new THREE.MeshPhongMaterial({
+    color: ION_COLORS[type],
+    emissive: new THREE.Color(ION_COLORS[type]).multiplyScalar(0.25),
+    shininess: 120
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  if (pos) {
+    mesh.position.copy(pos);
+  } else {
+    const angle = Math.random() * Math.PI * 2;
+    const rr = Math.random() * BEAKER_R * 0.9;
+    mesh.position.set(rr * Math.cos(angle), (Math.random() - 0.5) * BEAKER_H * 1.8, rr * Math.sin(angle));
+  }
+
+  scene.add(mesh);
+
+  const spd = 0.018 + Math.random() * 0.018;
+  const vPhi = (Math.random() - 0.5) * Math.PI;
+  const vTheta = Math.random() * Math.PI * 2;
+
+  ions.push({
+    mesh, type, active: true, age: 0,
+    vx: spd * Math.cos(vTheta) * Math.cos(vPhi),
+    vy: spd * Math.sin(vPhi),
+    vz: spd * Math.sin(vTheta) * Math.cos(vPhi)
+  });
+}
+
+function removeIon(ion) {
+  ion.active = false;
+  scene.remove(ion.mesh);
+  ion.mesh.geometry.dispose();
+  ion.mesh.material.dispose();
+}
+
+function spawnWaterAt(pos) {
+  const geo = new THREE.SphereGeometry(0.065, 8, 8);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0x99EEFF, transparent: true, opacity: 0.75,
+    emissive: 0x4499FF, emissiveIntensity: 0.4
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(pos);
+  scene.add(mesh);
+  let life = 0;
+  const tid = setInterval(() => {
+    life++;
+    mat.opacity = Math.max(0, 0.75 - life * 0.04);
+    mesh.position.y += 0.015;
+    mesh.scale.setScalar(1 + life * 0.03);
+    if (life > 20) {
+      clearInterval(tid);
+      scene.remove(mesh);
+      geo.dispose(); mat.dispose();
+    }
+  }, 40);
+}
+
+function syncIonCounts() {
+  const activeH  = ions.filter(i => i.active && i.type === 'H').length;
+  const activeOH = ions.filter(i => i.active && i.type === 'OH').length;
+
+  let curH  = activeH;
+  let curOH = activeOH;
+
+  while (curH < targetHCount) { spawnIon('H'); curH++; }
+  while (curH > targetHCount) {
+    const idx = ions.findIndex(i => i.active && i.type === 'H');
+    if (idx >= 0) removeIon(ions[idx]);
+    curH--;
+  }
+  while (curOH < targetOHCount) { spawnIon('OH'); curOH++; }
+  while (curOH > targetOHCount) {
+    const idx = ions.findIndex(i => i.active && i.type === 'OH');
+    if (idx >= 0) removeIon(ions[idx]);
+    curOH--;
+  }
+
+  const wantNa = Math.min(targetOHCount, 20);
+  const wantCl = Math.min(targetHCount, 20);
+
+  while (ions.filter(i => i.active && i.type === 'Na').length < wantNa) spawnIon('Na');
+  while (ions.filter(i => i.active && i.type === 'Na').length > wantNa) {
+    const idx = ions.findIndex(i => i.active && i.type === 'Na');
+    if (idx >= 0) removeIon(ions[idx]);
+  }
+  while (ions.filter(i => i.active && i.type === 'Cl').length < wantCl) spawnIon('Cl');
+  while (ions.filter(i => i.active && i.type === 'Cl').length > wantCl) {
+    const idx = ions.findIndex(i => i.active && i.type === 'Cl');
+    if (idx >= 0) removeIon(ions[idx]);
+  }
+}
+
+function updateIons() {
+  const MAX_SPEED = 0.045;
+  const NEUTRALIZE_DIST = 0.28;
+
+  for (const ion of ions) {
+    if (!ion.active) continue;
+
+    ion.mesh.position.x += ion.vx * simSpeed;
+    ion.mesh.position.y += ion.vy * simSpeed;
+    ion.mesh.position.z += ion.vz * simSpeed;
+    ion.age++;
+
+    if (Math.random() < 0.06) {
+      ion.vx += (Math.random() - 0.5) * 0.006;
+      ion.vy += (Math.random() - 0.5) * 0.006;
+      ion.vz += (Math.random() - 0.5) * 0.006;
+    }
+
+    const px = ion.mesh.position.x, py = ion.mesh.position.y, pz = ion.mesh.position.z;
+    const rr = Math.sqrt(px * px + pz * pz);
+    if (rr > BEAKER_R) {
+      const nx = px / rr, nz = pz / rr;
+      const dot = ion.vx * nx + ion.vz * nz;
+      ion.vx -= 2 * dot * nx;
+      ion.vz -= 2 * dot * nz;
+      ion.mesh.position.x = nx * BEAKER_R * 0.97;
+      ion.mesh.position.z = nz * BEAKER_R * 0.97;
+    }
+    if (py > BEAKER_H) { ion.vy = -Math.abs(ion.vy); ion.mesh.position.y = BEAKER_H; }
+    if (py < -BEAKER_H) { ion.vy = Math.abs(ion.vy); ion.mesh.position.y = -BEAKER_H; }
+
+    const spd = Math.hypot(ion.vx, ion.vy, ion.vz);
+    if (spd > MAX_SPEED) { const f = MAX_SPEED / spd; ion.vx *= f; ion.vy *= f; ion.vz *= f; }
+  }
+
+  const hIons  = ions.filter(i => i.active && i.type === 'H');
+  const ohIons = ions.filter(i => i.active && i.type === 'OH');
+  const usedH  = new Set(), usedOH = new Set();
+
+  for (const h of hIons) {
+    if (usedH.has(h)) continue;
+    for (const oh of ohIons) {
+      if (usedOH.has(oh)) continue;
+      const dx = h.mesh.position.x - oh.mesh.position.x;
+      const dy = h.mesh.position.y - oh.mesh.position.y;
+      const dz = h.mesh.position.z - oh.mesh.position.z;
+      if (dx*dx + dy*dy + dz*dz < NEUTRALIZE_DIST * NEUTRALIZE_DIST) {
+        const pos = h.mesh.position.clone();
+        usedH.add(h); usedOH.add(oh);
+
+        flashLight.position.copy(pos);
+        flashLight.intensity = 4;
+        setTimeout(() => { flashLight.intensity = 0; }, 180);
+
+        spawnWaterAt(pos);
+
+        removeIon(h);
+        removeIon(oh);
+
+        totalNeutralized++;
+        targetHCount  = Math.max(0, targetHCount - 1);
+        targetOHCount = Math.max(0, targetOHCount - 1);
+
+        if (Math.random() < 0.12) showToast('⚡ H⁺ + OH⁻ → H₂O 中和！');
+        break;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// pH 邏輯
+// ═══════════════════════════════════════════
+function calcPH() {
+  const h  = ions.filter(i => i.active && i.type === 'H').length;
+  const oh = ions.filter(i => i.active && i.type === 'OH').length;
+  const base = 30;
+  if (h > oh) {
+    const cH = (h - oh) / base * 0.1;
+    return Math.max(0, -Math.log10(Math.max(cH, 1e-14)));
+  } else if (oh > h) {
+    const cOH = (oh - h) / base * 0.1;
+    const pOH = Math.max(0, -Math.log10(Math.max(cOH, 1e-14)));
+    return Math.min(14, 14 - pOH);
+  }
+  return 7.0;
+}
+
+function phToColor(ph) {
+  if (ph < 3) return '#EF4444';
+  if (ph < 5) return '#F97316';
+  if (ph < 6.5) return '#EAB308';
+  if (ph < 7.5) return '#22C55E';
+  if (ph < 9) return '#06B6D4';
+  if (ph < 11) return '#3B82F6';
+  return '#8B5CF6';
+}
+
+function phToStatus(ph) {
+  if (ph < 3) return '強酸性';
+  if (ph < 7) return '酸性';
+  if (ph === 7 || (ph > 6.8 && ph < 7.2)) return '中性 ✓';
+  if (ph < 11) return '鹼性';
+  return '強鹼性';
+}
+
+function updatePHDisplay() {
+  const ph = calcPH();
+  const color = phToColor(ph);
+
+  document.getElementById('ph-val').textContent = ph.toFixed(1);
+  document.getElementById('ph-val').style.color = color;
+  document.getElementById('ph-status').textContent = phToStatus(ph);
+  document.getElementById('ph-status').style.color = color;
+  document.getElementById('ph-needle').style.left = (ph / 14 * 100).toFixed(1) + '%';
+
+  const h  = ions.filter(i => i.active && i.type === 'H').length;
+  const oh = ions.filter(i => i.active && i.type === 'OH').length;
+  document.getElementById('ion-counts').textContent = `H⁺: ${h} | OH⁻: ${oh}`;
+  document.getElementById('h-count').textContent = h;
+  document.getElementById('oh-count').textContent = oh;
+  document.getElementById('neutral-count').textContent = totalNeutralized;
+
+  const liquidColor = new THREE.Color(color);
+  liquidMat.color.set(liquidColor);
+  liquidMat.emissive.set(liquidColor).multiplyScalar(0.3);
+
+  updateCurveMarker(ph);
+}
+
+// ═══════════════════════════════════════════
+// D3 pH 滴定曲線
+// ═══════════════════════════════════════════
+let curveMarker, xScale, yScale;
+
+function buildPHCurve() {
+  const svg = d3.select('#ph-curve');
+  const W = 240, H = 110;
+  const margin = { top: 8, right: 10, bottom: 22, left: 28 };
+  const iW = W - margin.left - margin.right;
+  const iH = H - margin.top - margin.bottom;
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const data = [];
+  for (let v = 0; v <= 60; v++) {
+    let ph;
+    const base = 30;
+    if (v < base) {
+      const cH = (base - v) / base * 0.1;
+      ph = -Math.log10(cH);
+    } else if (v === base) {
+      ph = 7.0;
+    } else {
+      const cOH = (v - base) / base * 0.1;
+      const pOH = -Math.log10(cOH);
+      ph = 14 - pOH;
+    }
+    data.push({ v, ph: Math.max(0, Math.min(14, ph)) });
+  }
+
+  xScale = d3.scaleLinear().domain([0, 60]).range([0, iW]);
+  yScale = d3.scaleLinear().domain([0, 14]).range([iH, 0]);
+
+  g.append('g').attr('transform', `translate(0,${iH})`)
+    .call(d3.axisBottom(xScale).ticks(6).tickSize(3))
+    .attr('color', '#64748B').attr('font-size', '8px')
+    .append('text').attr('x', iW / 2).attr('y', 18).attr('fill', '#94A3B8').attr('font-size', '9px').text('NaOH 滴加量');
+
+  g.append('g')
+    .call(d3.axisLeft(yScale).ticks(7).tickSize(3))
+    .attr('color', '#64748B').attr('font-size', '8px')
+    .append('text').attr('transform', 'rotate(-90)').attr('y', -22).attr('x', -iH / 2).attr('fill', '#94A3B8').attr('font-size', '9px').attr('text-anchor', 'middle').text('pH');
+
+  g.append('line').attr('x1', xScale(30)).attr('x2', xScale(30)).attr('y1', 0).attr('y2', iH)
+    .attr('stroke', '#22C55E').attr('stroke-width', 1).attr('stroke-dasharray', '3,3').attr('opacity', 0.7);
+
+  g.append('line').attr('x1', 0).attr('x2', iW).attr('y1', yScale(7)).attr('y2', yScale(7))
+    .attr('stroke', '#94A3B8').attr('stroke-width', 0.5).attr('stroke-dasharray', '2,2').attr('opacity', 0.5);
+
+  const lineGen = d3.line().x(d => xScale(d.v)).y(d => yScale(d.ph)).curve(d3.curveCatmullRom);
+
+  g.append('path')
+    .datum(data)
+    .attr('fill', 'none')
+    .attr('stroke', 'url(#phGrad)')
+    .attr('stroke-width', 2.5)
+    .attr('d', lineGen);
+
+  const defs = svg.append('defs');
+  const grad = defs.append('linearGradient').attr('id', 'phGrad').attr('gradientUnits', 'userSpaceOnUse')
+    .attr('x1', margin.left).attr('x2', margin.left + iW);
+  grad.append('stop').attr('offset', '0%').attr('stop-color', '#EF4444');
+  grad.append('stop').attr('offset', '40%').attr('stop-color', '#EAB308');
+  grad.append('stop').attr('offset', '50%').attr('stop-color', '#22C55E');
+  grad.append('stop').attr('offset', '65%').attr('stop-color', '#3B82F6');
+  grad.append('stop').attr('offset', '100%').attr('stop-color', '#8B5CF6');
+
+  curveMarker = g.append('circle').attr('r', 5).attr('fill', 'white')
+    .attr('stroke', '#F59E0B').attr('stroke-width', 2)
+    .attr('cx', xScale(0)).attr('cy', yScale(1));
+
+  g.append('text').attr('x', xScale(30) + 3).attr('y', yScale(7) - 3)
+    .attr('fill', '#22C55E').attr('font-size', '8px').text('當量點');
+}
+
+function updateCurveMarker(ph) {
+  if (!curveMarker) return;
+  const v = targetOHCount;
+  const clampedV = Math.max(0, Math.min(60, v));
+  curveMarker
+    .attr('cx', xScale(clampedV))
+    .attr('cy', yScale(Math.max(0, Math.min(14, ph))));
+}
+
+// ═══════════════════════════════════════════
+// 控制項
+// ═══════════════════════════════════════════
+function onNaOHChange(val) {
+  const v = parseInt(val);
+  targetOHCount = v;
+  document.getElementById('naoh-val').textContent = v + ' 滴';
+  syncIonCounts();
+  if (v === 30) showToast('🎉 恰好中和！pH = 7，達到當量點！');
+}
+
+function onSpeedChange(val) {
+  simSpeed = parseInt(val);
+  document.getElementById('speed-val').textContent = simSpeed + '×';
+}
+
+function addAcid() {
+  targetHCount = Math.min(targetHCount + 5, 60);
+  document.getElementById('naoh-slider').value = Math.max(0, targetOHCount - 5);
+  syncIonCounts();
+  showToast('添加了 HCl — 酸性增強！');
+}
+
+function addBase() {
+  const newVal = Math.min(parseInt(document.getElementById('naoh-slider').value) + 5, 60);
+  document.getElementById('naoh-slider').value = newVal;
+  onNaOHChange(newVal);
+  showToast('添加了 NaOH — 鹼性增強！');
+}
+
+function resetScene() {
+  ions.filter(i => i.active).forEach(removeIon);
+  ions = [];
+  targetHCount = 30;
+  targetOHCount = 0;
+  totalNeutralized = 0;
+  document.getElementById('naoh-slider').value = 0;
+  document.getElementById('naoh-val').textContent = '0 滴';
+  syncIonCounts();
+  showToast('已重置實驗！');
+}
+
+function randomExperiment() {
+  const scenarios = [
+    { h: 10, oh: 40, msg: '鹼過量場景！' },
+    { h: 30, oh: 30, msg: '恰好中和！pH ≈ 7' },
+    { h: 50, oh: 10, msg: '酸強烈過量！' },
+    { h: 20, oh: 20, msg: '稀溶液中和' },
+    { h: 5,  oh: 45, msg: '強鹼弱酸場景！' },
+  ];
+  const s = scenarios[Math.floor(Math.random() * scenarios.length)];
+  ions.filter(i => i.active).forEach(removeIon);
+  ions = [];
+  targetHCount = s.h;
+  targetOHCount = s.oh;
+  totalNeutralized = 0;
+  document.getElementById('naoh-slider').value = s.oh;
+  document.getElementById('naoh-val').textContent = s.oh + ' 滴';
+  syncIonCounts();
+  showToast('🎲 ' + s.msg);
+}
+
+function toggleFS() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+
+// ═══════════════════════════════════════════
+// 小測驗系統
+// ═══════════════════════════════════════════
+const QUESTIONS = [
+  {
+    q: '鹽酸（HCl）與氫氧化鈉（NaOH）反應的離子方程式是？',
+    opts: ['H⁺ + OH⁻ → H₂O', 'HCl + NaOH → NaCl', 'Na⁺ + Cl⁻ → NaCl', 'H₂ + O → H₂O'],
+    ans: 0, exp: '酸鹼中和的本質是 H⁺ 與 OH⁻ 結合成水，Na⁺ 和 Cl⁻ 是旁觀離子，不參與反應。'
+  },
+  {
+    q: '當量點（等當點）時，強酸強鹼中和後溶液的 pH 值是？',
+    opts: ['pH = 0', 'pH = 7', 'pH = 14', '取決於酸的濃度'],
+    ans: 1, exp: '強酸強鹼完全中和後生成鹽（NaCl）和水，NaCl 不水解，溶液顯中性，pH = 7。'
+  },
+  {
+    q: '酚酞指示劑在酸性溶液中顯什麼顏色？',
+    opts: ['紅色', '藍色', '無色', '黃色'],
+    ans: 2, exp: '酚酞在酸性和中性溶液（pH < 8.2）中無色；在鹼性溶液（pH > 8.2）中變紅色。'
+  },
+  {
+    q: '向 HCl 溶液中逐滴加入 NaOH，pH 的變化趨勢是？',
+    opts: ['一直不變', '先降後升', '從小到大緩慢升高，在當量點附近急劇升高', '突然變為 7 後不變'],
+    ans: 2, exp: '滴定曲線呈S形：起始時pH低，緩慢升高；接近當量點時pH急劇跳躍；過量鹼後pH趨於穩定的高值。'
+  },
+  {
+    q: '中和反應屬於哪類基本反應類型？',
+    opts: ['化合反應', '分解反應', '複分解反應', '置換反應'],
+    ans: 2, exp: '中和反應是複分解反應的一種：酸 + 鹼 → 鹽 + 水，兩種化合物相互交換離子。'
+  }
+];
+
+let qIdx = 0;
+function renderQuiz() {
+  const q = QUESTIONS[qIdx % QUESTIONS.length];
+  document.getElementById('quiz-body').innerHTML = `
+    <div style="font-size:11px;color:#94A3B8;margin-bottom:6px">第 ${(qIdx % QUESTIONS.length) + 1} / ${QUESTIONS.length} 題</div>
+    <div class="q-text">${q.q}</div>
+    <div class="q-opt">
+      ${q.opts.map((o, i) => `<button class="opt-btn" onclick="checkAns(${i})" id="opt-${i}">${String.fromCharCode(65+i)}. ${o}</button>`).join('')}
+    </div>
+    <div class="q-feedback" id="q-feedback"></div>
+    <button class="btn btn-p q-next" id="q-next" onclick="nextQ()" style="display:none">下一題 →</button>
+  `;
+}
+
+function checkAns(chosen) {
+  const q = QUESTIONS[qIdx % QUESTIONS.length];
+  const fb = document.getElementById('q-feedback');
+  document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  document.getElementById(`opt-${chosen}`).classList.add(chosen === q.ans ? 'correct' : 'wrong');
+  document.getElementById(`opt-${q.ans}`).classList.add('correct');
+  fb.style.display = 'block';
+  fb.style.background = chosen === q.ans ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)';
+  fb.style.border = `1px solid ${chosen === q.ans ? '#22C55E' : '#EF4444'}`;
+  fb.style.color = chosen === q.ans ? '#4ADE80' : '#FCA5A5';
+  fb.innerHTML = (chosen === q.ans ? '✅ 正確！' : '❌ 錯誤。') + ' ' + q.exp;
+  document.getElementById('q-next').style.display = 'block';
+}
+
+function nextQ() { qIdx++; renderQuiz(); }
+
+function toggleQuiz() {
+  const panel = document.getElementById('quiz-panel');
+  const fab   = document.getElementById('quiz-fab');
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden'); fab.classList.add('hidden');
+  } else {
+    panel.classList.add('hidden'); fab.classList.remove('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
+}
+
+// ═══════════════════════════════════════════
+// Resize
+// ═══════════════════════════════════════════
+function onResize() {
+  const c = document.getElementById('canvas-container');
+  renderer.setSize(c.clientWidth, c.clientHeight);
+  camera.aspect = c.clientWidth / c.clientHeight;
+  camera.updateProjectionMatrix();
+}
+
+// ═══════════════════════════════════════════
+// Animation Loop
+// ═══════════════════════════════════════════
+let frameCount = 0;
+function animate() {
+  animId = requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  controls.update();
+
+  frameCount++;
+  updateIons();
+
+  if (frameCount % 6 === 0) updatePHDisplay();
+
+  ions.filter(i => i.active).forEach(ion => {
+    ion.mesh.rotation.x += 0.01 * simSpeed;
+    ion.mesh.rotation.y += 0.015 * simSpeed;
+  });
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════
+// KaTeX 公式
+// ═══════════════════════════════════════════
+function renderFormulas() {
+  const formulas = [
+    { id: 'f1', tex: '\\text{HCl} + \\text{NaOH} \\rightarrow \\text{NaCl} + \\text{H}_2\\text{O}' },
+    { id: 'f2', tex: '\\text{H}^+ + \\text{OH}^- \\rightarrow \\text{H}_2\\text{O}' },
+    { id: 'f3', tex: '\\Delta H = -57.3\\ \\text{kJ/mol}' },
+    { id: 'f4', tex: '\\text{pH} = -\\log_{10}[\\text{H}^+]' },
+    { id: 'f5', tex: '\\text{pH} + \\text{pOH} = 14\\ (25°C)' },
+  ];
+  formulas.forEach(f => {
+    try { katex.render(f.tex, document.getElementById(f.id), { throwOnError: false, displayMode: false }); }
+    catch (e) { document.getElementById(f.id).textContent = f.tex; }
+  });
+}
+
+// ═══════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════
+window.addEventListener('load', () => {
+  initScene();
+  renderFormulas();
+  buildPHCurve();
+  renderQuiz();
+
+  for (let i = 0; i < 30; i++) spawnIon('H');
+  for (let i = 0; i < 20; i++) spawnIon('Cl');
+
+  animate();
+});
+</script>
+
+<div style="position:fixed;bottom:4px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(148,163,184,.5);pointer-events:none;white-space:nowrap">
+  科學讓世界更透明 · 由 AetherViz Master 為你生成 ❤️
+</div>
+
+</body>
+</html>

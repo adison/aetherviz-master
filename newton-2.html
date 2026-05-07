@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>牛頓第二定律 | Newton's Second Law | AetherViz Master</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+:root{
+  --phys: linear-gradient(135deg,#3B82F6 0%,#0EA5E9 100%);
+  --phys2: linear-gradient(135deg,#1E40AF 0%,#3B82F6 50%,#0EA5E9 100%);
+  --border: rgba(59,130,246,0.28);
+  --glass: rgba(255,255,255,0.07);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:linear-gradient(180deg,#0F172A 0%,#0C1A3A 60%,#0F172A 100%);color:#F8FAFC;font-family:Inter,system-ui,sans-serif;height:100vh;overflow:hidden;}
+
+/* Nav */
+nav{background:rgba(15,23,42,0.92);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:100;position:relative;}
+.nav-title{font-size:16px;font-weight:800;background:var(--phys2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-sub{font-size:11px;color:#64748B;margin-left:10px;}
+.nav-btns{display:flex;gap:8px;align-items:center;}
+.btn{padding:5px 13px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,0.13);background:rgba(255,255,255,0.07);color:#F8FAFC;}
+.btn:hover{background:rgba(255,255,255,0.16);transform:translateY(-1px);}
+.btn-p{background:var(--phys);border-color:transparent;font-weight:600;}
+.btn-p:hover{opacity:.85;}
+.btn-play{background:linear-gradient(135deg,#22C55E,#16A34A);border-color:transparent;font-weight:700;min-width:72px;}
+
+/* Layout */
+.layout{display:flex;height:calc(100vh - 54px);}
+
+/* Sidebar */
+.sidebar{width:282px;background:rgba(15,23,42,0.93);border-right:1px solid var(--border);overflow-y:auto;padding:14px;flex-shrink:0;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(59,130,246,0.4);border-radius:2px;}
+.sec{margin-bottom:16px;}
+.sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#3B82F6;margin-bottom:8px;}
+.obj-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;font-size:12px;color:#CBD5E1;line-height:1.5;}
+.obj-check{width:16px;height:16px;border:2px solid #3B82F6;border-radius:4px;flex-shrink:0;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;font-size:10px;}
+.obj-check.done{background:#3B82F6;}
+.formula-box{background:rgba(59,130,246,0.09);border:1px solid rgba(59,130,246,0.22);border-radius:10px;padding:12px;margin-bottom:8px;}
+.explain{font-size:12px;color:#CBD5E1;line-height:1.75;}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;margin:2px;}
+
+/* Canvas */
+.canvas-area{flex:1;position:relative;overflow:hidden;}
+#canvas-container{width:100%;height:100%;position:relative;}
+#three-canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+#svg-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+
+/* HUD readout */
+.hud{position:absolute;top:12px;right:12px;background:rgba(15,23,42,.9);border:1px solid var(--border);border-radius:14px;padding:14px 18px;backdrop-filter:blur(14px);min-width:160px;}
+.hud-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;}
+.hud-label{color:#64748B;}
+.hud-val{font-weight:700;font-size:14px;}
+.hud-divider{border-top:1px solid rgba(255,255,255,0.07);margin:8px 0;}
+
+/* Charts panel */
+.charts-panel{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+.chart-card{background:rgba(15,23,42,.88);border:1px solid var(--border);border-radius:12px;padding:8px 10px;backdrop-filter:blur(12px);}
+.chart-title{font-size:10px;color:#64748B;text-align:center;margin-bottom:4px;}
+
+/* Controls */
+.ctrl-panel{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.9);border:1px solid var(--border);border-radius:18px;padding:14px 22px;backdrop-filter:blur(14px);display:flex;gap:20px;align-items:center;}
+.ctrl-group{display:flex;flex-direction:column;gap:4px;min-width:148px;}
+.ctrl-label{font-size:10px;color:#64748B;display:flex;justify-content:space-between;}
+.ctrl-label span:last-child{color:#60A5FA;font-weight:700;}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,0.13);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--phys);cursor:pointer;box-shadow:0 0 8px rgba(59,130,246,.5);}
+.ctrl-sep{width:1px;height:60px;background:rgba(255,255,255,0.08);}
+.playback{display:flex;gap:8px;align-items:center;flex-direction:column;}
+.step-btns{display:flex;gap:6px;}
+
+/* Quiz */
+.quiz-panel{position:absolute;bottom:100px;right:12px;width:360px;background:rgba(15,23,42,.93);border:1px solid var(--border);border-radius:16px;backdrop-filter:blur(14px);overflow:hidden;transition:all .3s ease;max-height:380px;}
+.quiz-panel.hidden{opacity:0;pointer-events:none;transform:translateY(20px) scale(.97);}
+.quiz-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);}
+.quiz-body{padding:16px;overflow-y:auto;max-height:320px;}
+.q-text{font-size:13px;line-height:1.65;margin-bottom:12px;color:#E2E8F0;}
+.q-opt{display:flex;flex-direction:column;gap:8px;}
+.opt-btn{padding:9px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#CBD5E1;font-size:12px;cursor:pointer;text-align:left;transition:.2s;}
+.opt-btn:hover{background:rgba(59,130,246,0.18);border-color:rgba(59,130,246,.45);}
+.opt-btn.correct{background:rgba(34,197,94,.2);border-color:#22C55E;color:#4ADE80;}
+.opt-btn.wrong{background:rgba(239,68,68,.2);border-color:#EF4444;color:#FCA5A5;}
+.q-feedback{margin-top:10px;font-size:12px;padding:9px;border-radius:9px;display:none;line-height:1.6;}
+.quiz-fab{position:absolute;bottom:12px;right:12px;width:50px;height:50px;border-radius:50%;background:var(--phys);border:none;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(59,130,246,.45);transition:transform .2s;color:white;z-index:50;}
+.quiz-fab:hover{transform:scale(1.1);}
+.quiz-fab.hidden{display:none;}
+.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,.95);color:white;padding:8px 20px;border-radius:9px;font-weight:700;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+
+/* Legend */
+.legend{position:absolute;bottom:108px;left:12px;background:rgba(15,23,42,.85);border:1px solid var(--border);border-radius:10px;padding:10px 14px;backdrop-filter:blur(10px);}
+.legend-row{display:flex;align-items:center;gap:8px;font-size:11px;color:#CBD5E1;margin-bottom:5px;}
+.legend-row:last-child{margin-bottom:0;}
+.legend-line{width:24px;height:3px;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- Nav -->
+<nav>
+  <div style="display:flex;align-items:center">
+    <span class="nav-title">牛頓第二定律</span>
+    <span class="nav-sub">Newton's Second Law — F = ma</span>
+  </div>
+  <div class="nav-btns">
+    <button class="btn" onclick="resetSim()">重置</button>
+    <button class="btn" onclick="randomExperiment()">隨機實驗</button>
+    <button class="btn" onclick="toggleFS()">全螢幕</button>
+  </div>
+</nav>
+
+<!-- Layout -->
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sec">
+      <div class="sec-title">學習目標</div>
+      <div class="obj-item"><div class="obj-check" onclick="toggle(this)"></div>理解 F=ma 的物理意義：合力決定加速度</div>
+      <div class="obj-item"><div class="obj-check" onclick="toggle(this)"></div>掌握質量、力、加速度三者的比例關係</div>
+      <div class="obj-item"><div class="obj-check" onclick="toggle(this)"></div>理解摩擦力對運動狀態的影響</div>
+      <div class="obj-item"><div class="obj-check" onclick="toggle(this)"></div>能從 v-t 圖、F-a 圖讀取物理量</div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">核心公式</div>
+      <div class="formula-box">
+        <div id="f1" style="margin-bottom:8px"></div>
+        <div id="f2" style="margin-bottom:8px"></div>
+        <div id="f3"></div>
+      </div>
+      <div class="formula-box">
+        <div style="font-size:10px;color:#64748B;margin-bottom:6px">即時計算</div>
+        <div id="f-calc" style="font-size:12px"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">原理解析</div>
+      <div class="explain">
+        想像推一個購物車：空車（質量小）輕輕一推就飛快；滿載貨物的車（質量大）同樣的力卻只緩慢移動。<br><br>
+        這就是 <strong style="color:#60A5FA">F = ma</strong> 的直覺：<strong style="color:#EF4444">力（F）</strong>是加速度的原因，<strong style="color:#FBBF24">質量（m）</strong>是「慣性」的度量——它告訴你物體有多「懶得動」。<br><br>
+        合力越大 → 加速度越大；質量越大 → 加速度越小。二者成完美的<strong style="color:#22C55E">線性關係</strong>。
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">向量顏色說明</div>
+      <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:4px;background:#EF4444;border-radius:2px"></div>施力 F（合力）</div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:4px;background:#22C55E;border-radius:2px"></div>加速度 a</div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:4px;background:#3B82F6;border-radius:2px"></div>速度 v</div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:4px;background:#F59E0B;border-radius:2px"></div>摩擦力 f</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">真實應用</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        <span class="tag" style="background:rgba(59,130,246,.15);color:#93C5FD">🚀 火箭推進</span>
+        <span class="tag" style="background:rgba(34,197,94,.15);color:#86EFAC">🚗 汽車剎車</span>
+        <span class="tag" style="background:rgba(245,158,11,.15);color:#FCD34D">⚽ 球的運動</span>
+        <span class="tag" style="background:rgba(239,68,68,.15);color:#FCA5A5">🛸 衛星軌道</span>
+        <span class="tag" style="background:rgba(139,92,246,.15);color:#C4B5FD">🏗️ 結構工程</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas Area -->
+  <div class="canvas-area">
+    <div id="canvas-container">
+      <canvas id="three-canvas"></canvas>
+      <svg id="svg-overlay"></svg>
+
+      <!-- Physics HUD -->
+      <div class="hud">
+        <div style="font-size:10px;color:#3B82F6;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">即時數值</div>
+        <div class="hud-row"><span class="hud-label">施力 F</span><span class="hud-val" id="hud-f" style="color:#EF4444">20.0 N</span></div>
+        <div class="hud-row"><span class="hud-label">質量 m</span><span class="hud-val" id="hud-m" style="color:#FBBF24">5.0 kg</span></div>
+        <div class="hud-row"><span class="hud-label">加速度 a</span><span class="hud-val" id="hud-a" style="color:#22C55E">4.00 m/s²</span></div>
+        <div class="hud-divider"></div>
+        <div class="hud-row"><span class="hud-label">速度 v</span><span class="hud-val" id="hud-v" style="color:#3B82F6">0.00 m/s</span></div>
+        <div class="hud-row"><span class="hud-label">位移 x</span><span class="hud-val" id="hud-x" style="color:#94A3B8">0.00 m</span></div>
+        <div class="hud-row"><span class="hud-label">時間 t</span><span class="hud-val" id="hud-t" style="color:#94A3B8">0.00 s</span></div>
+        <div class="hud-divider"></div>
+        <div class="hud-row"><span class="hud-label">動量 p</span><span class="hud-val" id="hud-p" style="color:#A78BFA">0.00 kg·m/s</span></div>
+        <div class="hud-row"><span class="hud-label">動能 KE</span><span class="hud-val" id="hud-ke" style="color:#34D399">0.00 J</span></div>
+      </div>
+
+      <!-- D3 Charts -->
+      <div class="charts-panel">
+        <div class="chart-card">
+          <div class="chart-title">a–F 關係圖 (斜率=1/m)</div>
+          <svg id="af-chart" width="190" height="115"></svg>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">v–t 圖 (即時記錄)</div>
+          <svg id="vt-chart" width="190" height="115"></svg>
+        </div>
+      </div>
+
+      <!-- Vector legend -->
+      <div class="legend">
+        <div style="font-size:10px;color:#3B82F6;font-weight:700;margin-bottom:6px">箭頭圖例</div>
+        <div class="legend-row"><div class="legend-line" style="background:#EF4444"></div>合力 F</div>
+        <div class="legend-row"><div class="legend-line" style="background:#22C55E"></div>加速度 a</div>
+        <div class="legend-row"><div class="legend-line" style="background:#3B82F6"></div>速度 v</div>
+        <div class="legend-row"><div class="legend-line" style="background:#F59E0B"></div>摩擦力 f</div>
+      </div>
+
+      <!-- Controls -->
+      <div class="ctrl-panel">
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>施力 F</span><span id="f-label">20 N</span></div>
+          <input type="range" id="f-slider" min="0" max="60" value="20" oninput="onFChange(this.value)">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>質量 m</span><span id="m-label">5.0 kg</span></div>
+          <input type="range" id="m-slider" min="1" max="15" value="5" step="0.5" oninput="onMChange(this.value)">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>摩擦係數 μ</span><span id="mu-label">0.00</span></div>
+          <input type="range" id="mu-slider" min="0" max="0.8" value="0" step="0.05" oninput="onMuChange(this.value)">
+        </div>
+        <div class="ctrl-group">
+          <div class="ctrl-label"><span>模擬速度</span><span id="spd-label">1×</span></div>
+          <input type="range" id="spd-slider" min="0.5" max="4" value="1" step="0.5" oninput="onSpdChange(this.value)">
+        </div>
+        <div class="ctrl-sep"></div>
+        <div class="playback">
+          <button class="btn btn-play" id="play-btn" onclick="togglePlay()">▶ 開始</button>
+          <div class="step-btns">
+            <button class="btn" onclick="stepOnce()" style="font-size:11px;padding:4px 10px">單步</button>
+            <button class="btn" onclick="resetSim()" style="font-size:11px;padding:4px 10px">重置</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quiz Panel -->
+      <div class="quiz-panel" id="quiz-panel">
+        <div class="quiz-head">
+          <span style="font-size:13px;font-weight:700">🔭 小測驗</span>
+          <button class="btn" onclick="toggleQuiz()" style="padding:3px 10px;font-size:11px">隱藏</button>
+        </div>
+        <div class="quiz-body" id="quiz-body"></div>
+      </div>
+      <button class="quiz-fab hidden" id="quiz-fab" onclick="toggleQuiz()">🔭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════
+// Inline OrbitControls
+// ═══════════════════════
+class OrbitControls {
+  constructor(camera, domElement) {
+    this.camera = camera;
+    this.domElement = domElement;
+    this.enableDamping = true;
+    this.dampingFactor = 0.07;
+    this.minDistance = 4; this.maxDistance = 22;
+    this.target = new THREE.Vector3(0, 0, 0);
+    this._s = {theta: -0.4, phi: 1.0, r: 12};
+    this._t = {theta: -0.4, phi: 1.0, r: 12};
+    this._drag = false; this._last = {x:0, y:0}; this._pinch = 0;
+    const el = domElement;
+    el.addEventListener('mousedown', e => { this._drag=true; this._last={x:e.clientX,y:e.clientY}; });
+    el.addEventListener('mousemove', e => {
+      if(!this._drag) return;
+      this._t.theta -= (e.clientX-this._last.x)*0.007;
+      this._t.phi = Math.max(.15, Math.min(Math.PI-.15, this._t.phi-(e.clientY-this._last.y)*0.007));
+      this._last={x:e.clientX,y:e.clientY};
+    });
+    el.addEventListener('mouseup',   ()=>this._drag=false);
+    el.addEventListener('mouseleave',()=>this._drag=false);
+    el.addEventListener('wheel', e=>{ this._t.r=Math.max(this.minDistance,Math.min(this.maxDistance,this._t.r+e.deltaY*.012)); },{passive:true});
+    el.addEventListener('touchstart', e=>{
+      if(e.touches.length===1){this._drag=true;this._last={x:e.touches[0].clientX,y:e.touches[0].clientY};}
+      if(e.touches.length===2) this._pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    },{passive:true});
+    el.addEventListener('touchmove', e=>{
+      if(e.touches.length===1&&this._drag){
+        this._t.theta-=(e.touches[0].clientX-this._last.x)*0.007;
+        this._t.phi=Math.max(.15,Math.min(Math.PI-.15,this._t.phi-(e.touches[0].clientY-this._last.y)*0.007));
+        this._last={x:e.touches[0].clientX,y:e.touches[0].clientY};
+      }
+      if(e.touches.length===2){
+        const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+        this._t.r=Math.max(this.minDistance,Math.min(this.maxDistance,this._t.r-(d-this._pinch)*.02));
+        this._pinch=d;
+      }
+    },{passive:true});
+    el.addEventListener('touchend',()=>this._drag=false);
+  }
+  update() {
+    const f = this.enableDamping ? this.dampingFactor : 1;
+    this._s.theta += (this._t.theta - this._s.theta)*f;
+    this._s.phi   += (this._t.phi   - this._s.phi  )*f;
+    this._s.r     += (this._t.r     - this._s.r    )*f;
+    const {r,theta,phi}=this._s;
+    this.camera.position.set(
+      this.target.x + r*Math.sin(phi)*Math.sin(theta),
+      this.target.y + r*Math.cos(phi),
+      this.target.z + r*Math.sin(phi)*Math.cos(theta)
+    );
+    this.camera.lookAt(this.target);
+  }
+}
+
+// ═══════════════════════
+// App State
+// ═══════════════════════
+const SIM = {
+  F: 20, m: 5, mu: 0, simSpd: 1,
+  v: 0, x: 0, t: 0,
+  running: false,
+  g: 9.8, SCALE: 0.5 // 1 m = 0.5 THREE units
+};
+
+let scene, camera, renderer, controls, clock;
+let box, boxMat;
+let arrowF, arrowA, arrowV, arrowFric;
+let groundGrid, trailLine;
+const TRAIL_LEN = 200;
+const trailPositions = new Float32Array(TRAIL_LEN * 3);
+let trailIdx = 0;
+let afDot, vtPath, vtData = [];
+let xAfScale, yAfScale, xVtScale, yVtScale;
+let vtLine;
+let animId;
+let frameN = 0;
+
+// ═══════════════════════
+// Scene Setup
+// ═══════════════════════
+function initScene() {
+  const canvas = document.getElementById('three-canvas');
+  const cont = document.getElementById('canvas-container');
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setSize(cont.clientWidth, cont.clientHeight);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0A1020, 0.03);
+
+  camera = new THREE.PerspectiveCamera(55, cont.clientWidth/cont.clientHeight, 0.1, 300);
+  controls = new OrbitControls(camera, canvas);
+  controls.target.set(0, 1, 0);
+
+  clock = new THREE.Clock();
+
+  // Lights
+  scene.add(new THREE.HemisphereLight(0xA0C8FF, 0x082030, 0.7));
+  const sun = new THREE.DirectionalLight(0xFFFFFF, 1.4);
+  sun.position.set(8, 12, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 100;
+  sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+  sun.shadow.camera.top = 10; sun.shadow.camera.bottom = -10;
+  scene.add(sun);
+  scene.add(new THREE.PointLight(0x3B82F6, 1.2, 30, 2));
+
+  buildGround();
+  buildBox();
+  buildArrows();
+  buildTrail();
+  buildWall();
+
+  window.addEventListener('resize', onResize);
+}
+
+function buildGround() {
+  // Infinite plane
+  const planeGeo = new THREE.PlaneGeometry(80, 80);
+  const planeMat = new THREE.MeshStandardMaterial({
+    color: 0x0D1B2E, roughness: 0.9, metalness: 0.1
+  });
+  const plane = new THREE.Mesh(planeGeo, planeMat);
+  plane.rotation.x = -Math.PI/2;
+  plane.position.y = -0.01;
+  plane.receiveShadow = true;
+  scene.add(plane);
+
+  // Grid
+  const grid = new THREE.GridHelper(80, 80, 0x1E3A5F, 0x112244);
+  grid.position.y = 0;
+  scene.add(grid);
+
+  // Ruler marks along X axis
+  for (let i = -10; i <= 30; i += 2) {
+    const geo = new THREE.BoxGeometry(0.03, 0.25, 0.03);
+    const mat = new THREE.MeshPhongMaterial({color: 0x1E40AF, transparent: true, opacity: 0.6});
+    const mark = new THREE.Mesh(geo, mat);
+    mark.position.set(i * SIM.SCALE, 0.12, 0);
+    scene.add(mark);
+  }
+}
+
+function buildBox() {
+  const size = massToSize(SIM.m);
+  const geo = new THREE.BoxGeometry(size, size, size);
+  boxMat = new THREE.MeshStandardMaterial({
+    color: 0x3B82F6, roughness: 0.35, metalness: 0.6,
+    emissive: 0x1E3A8A, emissiveIntensity: 0.2
+  });
+  box = new THREE.Mesh(geo, boxMat);
+  box.position.set(0, size/2, 0);
+  box.castShadow = true;
+  box.receiveShadow = true;
+  scene.add(box);
+}
+
+function massToSize(m) { return 0.5 + Math.cbrt(m/5)*0.55; }
+
+function buildArrows() {
+  const X = new THREE.Vector3(1,0,0);
+  const negX = new THREE.Vector3(-1,0,0);
+  const h = 0.2;
+
+  arrowF    = new THREE.ArrowHelper(X, new THREE.Vector3(0,1,0), 2, 0xEF4444, h, h*0.6);
+  arrowA    = new THREE.ArrowHelper(X, new THREE.Vector3(0,1,0), 1, 0x22C55E, h, h*0.6);
+  arrowV    = new THREE.ArrowHelper(X, new THREE.Vector3(0,1,0), 0, 0x3B82F6, h, h*0.6);
+  arrowFric = new THREE.ArrowHelper(negX, new THREE.Vector3(0,1,0), 0, 0xF59E0B, h, h*0.6);
+
+  scene.add(arrowF, arrowA, arrowV, arrowFric);
+}
+
+function buildTrail() {
+  trailPositions.fill(0);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  geo.setDrawRange(0, 0);
+  const mat = new THREE.LineBasicMaterial({color: 0x60A5FA, transparent: true, opacity: 0.5});
+  trailLine = new THREE.Line(geo, mat);
+  scene.add(trailLine);
+}
+
+function buildWall() {
+  // Starting wall / push plate
+  const geo = new THREE.BoxGeometry(0.12, 3, 2);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xEF4444, roughness:.6, metalness:.3,
+    transparent: true, opacity: 0.7
+  });
+  const wall = new THREE.Mesh(geo, mat);
+  wall.position.set(-1.2, 1.5, 0);
+  wall.castShadow = true;
+  scene.add(wall);
+
+  // F label sprite at wall
+  const label = makeLabel('F', 0xEF4444);
+  label.position.set(-1.4, 3.2, 0);
+  scene.add(label);
+}
+
+function makeLabel(text, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#' + new THREE.Color(color).getHexString();
+  ctx.font = 'bold 40px Inter';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 32, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({map: tex, transparent: true});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.8, 0.8, 1);
+  return sprite;
+}
+
+// ═══════════════════════
+// Physics
+// ═══════════════════════
+function calcAccel() {
+  const fricF = SIM.mu * SIM.m * SIM.g;
+  const net = Math.max(0, SIM.F - fricF);
+  return net / SIM.m;
+}
+
+function updatePhysics(rawDt) {
+  const dt = Math.min(rawDt, 0.05) * SIM.simSpd;
+  if (!SIM.running) return;
+
+  const a = calcAccel();
+  SIM.v += a * dt;
+  SIM.x += SIM.v * dt;
+  SIM.t += dt;
+
+  const px = SIM.x * SIM.SCALE;
+  const size = massToSize(SIM.m);
+  box.position.x = px;
+  box.position.y = size / 2;
+
+  // Soft camera follow
+  const camTarget = Math.max(0, px - 2);
+  controls.target.x += (camTarget - controls.target.x) * 0.03;
+
+  // Trail
+  const trailOff = trailIdx * 3;
+  trailPositions[trailOff]   = px;
+  trailPositions[trailOff+1] = 0.05;
+  trailPositions[trailOff+2] = 0;
+  trailLine.geometry.attributes.position.needsUpdate = true;
+  trailLine.geometry.setDrawRange(0, trailIdx+1);
+  trailIdx = (trailIdx + 1) % TRAIL_LEN;
+
+  // Update arrows
+  updateArrows(px, size, a);
+
+  // v-t data
+  if (SIM.t < 15) {
+    vtData.push({t: SIM.t, v: SIM.v});
+    if (vtData.length > 200) vtData.shift();
+    updateVtChart();
+  }
+
+  // Boundary reset
+  if (SIM.x > 20) {
+    showToast('🚀 物體衝出邊界！速度 ' + SIM.v.toFixed(1) + ' m/s 太快了！');
+    SIM.running = false;
+    document.getElementById('play-btn').textContent = '▶ 開始';
+    document.getElementById('play-btn').style.background = 'linear-gradient(135deg,#22C55E,#16A34A)';
+  }
+}
+
+function updateArrows(px, size, a) {
+  const yOff = size;
+  const fScale = Math.min(SIM.F / 10, 5);
+  const aScale = Math.min(a / 3, 4);
+  const vScale = Math.min(SIM.v / 5, 4);
+  const fricF  = SIM.mu * SIM.m * SIM.g;
+  const fricSc = Math.min(fricF / 10, 3);
+
+  arrowF.position.set(px - size * 0.5, yOff, 0);
+  arrowF.setLength(Math.max(0.1, fScale), 0.3, 0.15);
+
+  arrowA.position.set(px, yOff + 0.6, 0);
+  arrowA.setLength(Math.max(0.05, aScale), 0.25, 0.12);
+  arrowA.visible = a > 0.001;
+
+  arrowV.position.set(px, yOff + 1.1, 0);
+  arrowV.setLength(Math.max(0.05, vScale), 0.22, 0.11);
+  arrowV.visible = SIM.v > 0.001;
+
+  arrowFric.position.set(px + size * 0.5, yOff, 0);
+  arrowFric.setLength(Math.max(0.01, fricSc), 0.22, 0.11);
+  arrowFric.visible = fricF > 0.01;
+}
+
+// ═══════════════════════
+// D3 Charts
+// ═══════════════════════
+function buildAfChart() {
+  const W=190, H=115, mg={top:8,right:8,bottom:22,left:30};
+  const iW=W-mg.left-mg.right, iH=H-mg.top-mg.bottom;
+  const svg = d3.select('#af-chart');
+  const g = svg.append('g').attr('transform',`translate(${mg.left},${mg.top})`);
+
+  xAfScale = d3.scaleLinear().domain([0,60]).range([0,iW]);
+  yAfScale = d3.scaleLinear().domain([0,20]).range([iH,0]);
+
+  g.append('g').attr('transform',`translate(0,${iH})`)
+   .call(d3.axisBottom(xAfScale).ticks(5).tickSize(3))
+   .attr('color','#475569').attr('font-size','8px')
+   .append('text').attr('x',iW/2).attr('y',18).attr('fill','#64748B').attr('font-size','9px').text('F (N)');
+
+  g.append('g').call(d3.axisLeft(yAfScale).ticks(5).tickSize(3))
+   .attr('color','#475569').attr('font-size','8px')
+   .append('text').attr('transform','rotate(-90)').attr('y',-22).attr('x',-iH/2).attr('fill','#64748B').attr('font-size','9px').attr('text-anchor','middle').text('a (m/s²)');
+
+  // Theoretical line (a = F/m)
+  const lineData = [{F:0,a:0},{F:60,a:60/SIM.m}];
+  const lineGen = d3.line().x(d=>xAfScale(d.F)).y(d=>yAfScale(Math.min(d.a,20)));
+
+  const afLineEl = g.append('path').datum(lineData).attr('fill','none')
+    .attr('stroke','#22C55E').attr('stroke-width',1.5).attr('stroke-dasharray','4,3')
+    .attr('d',lineGen);
+  afLineEl.attr('id','af-theory-line');
+
+  // Current point
+  afDot = g.append('circle').attr('r',5).attr('fill','#EF4444')
+    .attr('stroke','white').attr('stroke-width',1.5)
+    .attr('cx',xAfScale(SIM.F)).attr('cy',yAfScale(Math.min(calcAccel(),20)));
+
+  // Store group for updates
+  svg.node()._g = g;
+  svg.node()._lineGen = lineGen;
+}
+
+function updateAfChart() {
+  const a = calcAccel();
+  afDot.attr('cx', xAfScale(SIM.F)).attr('cy', yAfScale(Math.min(a, 20)));
+
+  // Update theory line for current mass
+  const lineData = [{F:0,a:0},{F:60,a:60/SIM.m}];
+  const svg = d3.select('#af-chart');
+  const g = svg.node()._g;
+  const lineGen = svg.node()._lineGen;
+  g.select('path').datum(lineData).attr('d', lineGen);
+}
+
+function buildVtChart() {
+  const W=190, H=115, mg={top:8,right:8,bottom:22,left:30};
+  const iW=W-mg.left-mg.right, iH=H-mg.top-mg.bottom;
+  const svg = d3.select('#vt-chart');
+  const g = svg.append('g').attr('transform',`translate(${mg.left},${mg.top})`);
+
+  xVtScale = d3.scaleLinear().domain([0,10]).range([0,iW]);
+  yVtScale = d3.scaleLinear().domain([0,20]).range([iH,0]);
+
+  const xAxis = g.append('g').attr('transform',`translate(0,${iH})`).attr('id','vt-xaxis')
+    .call(d3.axisBottom(xVtScale).ticks(5).tickSize(3))
+    .attr('color','#475569').attr('font-size','8px');
+  xAxis.append('text').attr('x',iW/2).attr('y',18).attr('fill','#64748B').attr('font-size','9px').text('t (s)');
+
+  g.append('g').call(d3.axisLeft(yVtScale).ticks(5).tickSize(3))
+    .attr('color','#475569').attr('font-size','8px')
+    .append('text').attr('transform','rotate(-90)').attr('y',-22).attr('x',-iH/2).attr('fill','#64748B').attr('font-size','9px').attr('text-anchor','middle').text('v (m/s)');
+
+  vtLine = g.append('path').attr('fill','none').attr('stroke','#3B82F6').attr('stroke-width',2);
+  svg.node()._iW = iW; svg.node()._iH = iH;
+}
+
+function updateVtChart() {
+  if (vtData.length < 2) return;
+  const tMax = Math.max(10, vtData[vtData.length-1].t);
+  const vMax = Math.max(20, vtData[vtData.length-1].v * 1.2);
+  xVtScale.domain([0, tMax]);
+  yVtScale.domain([0, vMax]);
+
+  const svg = d3.select('#vt-chart');
+  svg.select('#vt-xaxis').call(d3.axisBottom(xVtScale).ticks(5).tickSize(3));
+
+  const lineGen = d3.line().x(d=>xVtScale(d.t)).y(d=>yVtScale(Math.min(d.v, vMax)));
+  vtLine.datum(vtData).attr('d', lineGen);
+}
+
+// ═══════════════════════
+// SVG Overlay Labels
+// ═══════════════════════
+function project3D(vec3) {
+  const cont = document.getElementById('canvas-container');
+  const w = cont.clientWidth, h = cont.clientHeight;
+  const v = vec3.clone().project(camera);
+  return { x: (v.x*.5+.5)*w, y: (-(v.y*.5)+.5)*h };
+}
+
+function updateSvgLabels() {
+  const svg = document.getElementById('svg-overlay');
+  svg.innerHTML = '';
+
+  const size = massToSize(SIM.m);
+  const px = SIM.x * SIM.SCALE;
+
+  const labels = [
+    { pos: new THREE.Vector3(px - size*0.5 - 1.5, size + 0.5, 0), text: `F=${SIM.F}N`, color: '#EF4444' },
+    { pos: new THREE.Vector3(px + 1.2, size + 1.2, 0), text: `a=${calcAccel().toFixed(1)}m/s²`, color: '#22C55E' },
+    { pos: new THREE.Vector3(px + 1.2, size + 1.9, 0), text: `v=${SIM.v.toFixed(1)}m/s`, color: '#60A5FA', hide: SIM.v < 0.1 },
+  ];
+
+  labels.forEach(l => {
+    if (l.hide) return;
+    const sc = project3D(l.pos);
+    const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+    el.setAttribute('x', sc.x); el.setAttribute('y', sc.y);
+    el.setAttribute('fill', l.color); el.setAttribute('font-size', '12');
+    el.setAttribute('font-family', 'Inter,sans-serif'); el.setAttribute('font-weight', '700');
+    el.textContent = l.text;
+    svg.appendChild(el);
+  });
+}
+
+// ═══════════════════════
+// HUD Update
+// ═══════════════════════
+function updateHUD() {
+  const a = calcAccel();
+  const p = SIM.m * SIM.v;
+  const ke = 0.5 * SIM.m * SIM.v * SIM.v;
+  document.getElementById('hud-f').textContent = SIM.F.toFixed(1) + ' N';
+  document.getElementById('hud-m').textContent = SIM.m.toFixed(1) + ' kg';
+  document.getElementById('hud-a').textContent = a.toFixed(2) + ' m/s²';
+  document.getElementById('hud-v').textContent = SIM.v.toFixed(2) + ' m/s';
+  document.getElementById('hud-x').textContent = SIM.x.toFixed(2) + ' m';
+  document.getElementById('hud-t').textContent = SIM.t.toFixed(2) + ' s';
+  document.getElementById('hud-p').textContent = p.toFixed(2) + ' kg·m/s';
+  document.getElementById('hud-ke').textContent = ke.toFixed(2) + ' J';
+
+  // Inline KaTeX formula result
+  const formulaEl = document.getElementById('f-calc');
+  try {
+    katex.render(`a = \\frac{F}{m} = \\frac{${SIM.F}}{${SIM.m}} = ${a.toFixed(2)}\\ \\text{m/s}^2`, formulaEl, {throwOnError:false});
+  } catch(e) { formulaEl.textContent = `a = ${a.toFixed(2)} m/s²`; }
+}
+
+// ═══════════════════════
+// Box visual update
+// ═══════════════════════
+function updateBoxVisual() {
+  const size = massToSize(SIM.m);
+  scene.remove(box);
+  box.geometry.dispose();
+  box.geometry = new THREE.BoxGeometry(size, size, size);
+  box.position.y = size/2;
+  scene.add(box);
+  // Glow based on speed
+  const spd = Math.min(SIM.v / 10, 1);
+  boxMat.emissive.setHex(0x1E3A8A);
+  boxMat.emissiveIntensity = 0.15 + spd * 0.5;
+  // Spin box as it moves
+  box.rotation.z = -SIM.v * 0.1;
+}
+
+// ═══════════════════════
+// Controls Handlers
+// ═══════════════════════
+function onFChange(v) {
+  SIM.F = parseFloat(v);
+  document.getElementById('f-label').textContent = SIM.F + ' N';
+  updateArrows(SIM.x*SIM.SCALE, massToSize(SIM.m), calcAccel());
+  updateAfChart(); updateHUD();
+}
+
+function onMChange(v) {
+  SIM.m = parseFloat(v);
+  document.getElementById('m-label').textContent = SIM.m.toFixed(1) + ' kg';
+  updateBoxVisual();
+  updateArrows(SIM.x*SIM.SCALE, massToSize(SIM.m), calcAccel());
+  updateAfChart(); updateHUD();
+}
+
+function onMuChange(v) {
+  SIM.mu = parseFloat(v);
+  document.getElementById('mu-label').textContent = SIM.mu.toFixed(2);
+  updateHUD();
+}
+
+function onSpdChange(v) {
+  SIM.simSpd = parseFloat(v);
+  document.getElementById('spd-label').textContent = SIM.simSpd + '×';
+}
+
+function togglePlay() {
+  SIM.running = !SIM.running;
+  const btn = document.getElementById('play-btn');
+  if (SIM.running) {
+    btn.textContent = '⏸ 暫停';
+    btn.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
+    showToast('▶ 模擬開始！F=' + SIM.F + 'N, m=' + SIM.m + 'kg');
+  } else {
+    btn.textContent = '▶ 繼續';
+    btn.style.background = 'linear-gradient(135deg,#F59E0B,#D97706)';
+  }
+}
+
+function stepOnce() {
+  const wasRunning = SIM.running;
+  SIM.running = true;
+  updatePhysics(0.05);
+  SIM.running = wasRunning;
+  updateHUD(); updateSvgLabels();
+}
+
+function resetSim() {
+  SIM.v = 0; SIM.x = 0; SIM.t = 0;
+  SIM.running = false;
+  vtData = [];
+  trailIdx = 0;
+  trailPositions.fill(0);
+  trailLine.geometry.attributes.position.needsUpdate = true;
+  trailLine.geometry.setDrawRange(0, 0);
+  controls.target.set(0, 1, 0);
+  controls._t.theta = -0.4; controls._t.phi = 1.0; controls._t.r = 12;
+  box.position.set(0, massToSize(SIM.m)/2, 0);
+  box.rotation.set(0, 0, 0);
+  updateBoxVisual();
+  updateArrows(0, massToSize(SIM.m), calcAccel());
+  updateHUD(); updateVtChart();
+  const btn = document.getElementById('play-btn');
+  btn.textContent = '▶ 開始';
+  btn.style.background = 'linear-gradient(135deg,#22C55E,#16A34A)';
+  showToast('↩ 已重置模擬');
+}
+
+function randomExperiment() {
+  const experiments = [
+    {F:10, m:2, mu:0,    msg:'輕巧高速！小質量大加速度'},
+    {F:50, m:10, mu:0.3, msg:'重物大力！高摩擦力挑戰'},
+    {F:30, m:8, mu:0,    msg:'中等質量穩定加速'},
+    {F:5,  m:1, mu:0.1,  msg:'微力輕物，摩擦影響明顯'},
+    {F:60, m:3, mu:0.5,  msg:'強力小物！摩擦強烈阻礙'},
+  ];
+  const e = experiments[Math.floor(Math.random()*experiments.length)];
+  resetSim();
+  SIM.F = e.F; SIM.m = e.m; SIM.mu = e.mu;
+  document.getElementById('f-slider').value = e.F;
+  document.getElementById('m-slider').value = e.m;
+  document.getElementById('mu-slider').value = e.mu;
+  document.getElementById('f-label').textContent = e.F + ' N';
+  document.getElementById('m-label').textContent = e.m + '.0 kg';
+  document.getElementById('mu-label').textContent = e.mu.toFixed(2);
+  updateBoxVisual();
+  updateAfChart(); updateHUD();
+  showToast('🎲 ' + e.msg);
+  setTimeout(() => { SIM.running = true; document.getElementById('play-btn').textContent = '⏸ 暫停'; document.getElementById('play-btn').style.background='linear-gradient(135deg,#EF4444,#DC2626)'; }, 300);
+}
+
+function toggleFS() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+
+// ═══════════════════════
+// Quiz
+// ═══════════════════════
+const QS = [
+  {q:'一個 5 kg 的物體受到 20 N 的合力，其加速度為？',opts:['2 m/s²','4 m/s²','10 m/s²','100 m/s²'],ans:1,exp:'由 F=ma：a = F/m = 20/5 = 4 m/s²。力與加速度成正比，質量越大加速度越小。'},
+  {q:'保持合力不變，將質量加倍，加速度變為原來的？',opts:['2倍','不變','一半','4倍'],ans:2,exp:'a = F/m，若 m 倍增而 F 不變，則 a = F/(2m) = 原加速度/2。質量與加速度成反比。'},
+  {q:'牛頓第二定律 F=ma 中的 F 指的是？',opts:['任意一個作用力','施力方向的分力','物體所受的合力','重力'],ans:2,exp:'F 是物體所受所有力（重力、摩擦力、推力等）的向量合力，即淨力（Net Force）。'},
+  {q:'下列何者不是影響加速度大小的因素？',opts:['合力大小','物體質量','物體的顏色','摩擦力'],ans:2,exp:'加速度由 a = F_net/m 決定，與物體顏色無關！顏色是物理無關量。'},
+  {q:'一輛車以恆定速度行駛，其合力為？',opts:['向前的大力','向後的大力','零','等於重力'],ans:2,exp:'恆定速度意味加速度 a = 0，由 F = ma，合力 F = 0。推進力恰好等於摩擦阻力。'},
+];
+let qIdx = 0;
+function renderQuiz() {
+  const q = QS[qIdx % QS.length];
+  document.getElementById('quiz-body').innerHTML = `
+    <div style="font-size:10px;color:#475569;margin-bottom:6px">第 ${qIdx%QS.length+1} / ${QS.length} 題</div>
+    <div class="q-text">${q.q}</div>
+    <div class="q-opt">
+      ${q.opts.map((o,i)=>`<button class="opt-btn" onclick="checkQ(${i})" id="qo${i}">${String.fromCharCode(65+i)}. ${o}</button>`).join('')}
+    </div>
+    <div class="q-feedback" id="qfb"></div>
+    <button class="btn btn-p" id="qnext" style="display:none;margin-top:10px;width:100%" onclick="nextQ()">下一題 →</button>
+  `;
+}
+function checkQ(chosen) {
+  const q = QS[qIdx % QS.length];
+  document.querySelectorAll('.opt-btn').forEach(b=>b.disabled=true);
+  document.getElementById(`qo${chosen}`).classList.add(chosen===q.ans?'correct':'wrong');
+  document.getElementById(`qo${q.ans}`).classList.add('correct');
+  const fb = document.getElementById('qfb');
+  fb.style.display='block';
+  fb.style.background = chosen===q.ans?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)';
+  fb.style.border = `1px solid ${chosen===q.ans?'#22C55E':'#EF4444'}`;
+  fb.style.color = chosen===q.ans?'#4ADE80':'#FCA5A5';
+  fb.innerHTML = (chosen===q.ans?'✅ 正確！':'❌ 錯誤。') + ' ' + q.exp;
+  document.getElementById('qnext').style.display='block';
+}
+function nextQ() { qIdx++; renderQuiz(); }
+function toggleQuiz() {
+  const p=document.getElementById('quiz-panel'), f=document.getElementById('quiz-fab');
+  if(p.classList.contains('hidden')){p.classList.remove('hidden');f.classList.add('hidden');}
+  else{p.classList.add('hidden');f.classList.remove('hidden');}
+}
+function toggle(el) { el.classList.toggle('done'); el.innerHTML=el.classList.contains('done')?'✓':''; }
+
+// ═══════════════════════
+// Toast
+// ═══════════════════════
+let _tt;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(_tt);
+  _tt=setTimeout(()=>t.style.opacity='0',2500);
+}
+
+// ═══════════════════════
+// Resize
+// ═══════════════════════
+function onResize() {
+  const c=document.getElementById('canvas-container');
+  renderer.setSize(c.clientWidth, c.clientHeight);
+  camera.aspect=c.clientWidth/c.clientHeight;
+  camera.updateProjectionMatrix();
+}
+
+// ═══════════════════════
+// KaTeX Formulas
+// ═══════════════════════
+function renderFormulas() {
+  [
+    {id:'f1', tex:'\\vec{F} = m\\vec{a}'},
+    {id:'f2', tex:'a = \\frac{F_{net}}{m},\\quad F_{net} = F - f'},
+    {id:'f3', tex:'f = \\mu m g'},
+  ].forEach(({id,tex}) => {
+    try { katex.render(tex, document.getElementById(id), {throwOnError:false,displayMode:false}); }
+    catch(e) { document.getElementById(id).textContent = tex; }
+  });
+}
+
+// ═══════════════════════
+// Animation Loop
+// ═══════════════════════
+function animate() {
+  animId = requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  controls.update();
+  updatePhysics(dt);
+
+  frameN++;
+  if (frameN % 4 === 0) { updateHUD(); updateSvgLabels(); updateBoxVisual(); }
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════
+// Init
+// ═══════════════════════
+window.addEventListener('load', () => {
+  initScene();
+  renderFormulas();
+  buildAfChart();
+  buildVtChart();
+  renderQuiz();
+  updateHUD();
+  animate();
+});
+</script>
+
+<div style="position:fixed;bottom:4px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(100,116,139,.45);pointer-events:none;white-space:nowrap">
+  理解自然定律，你就掌握了改變世界的力量 · 由 AetherViz Master 為你生成 ❤️
+</div>
+
+</body>
+</html>
